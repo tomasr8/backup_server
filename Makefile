@@ -1,9 +1,15 @@
 CFLAGS=-Wall -Werror -std=c99
 
-client: client/client.o err.o ; gcc client/client.o err.o -o client/client.out $(CFLAGS)
+client: client/client.o err.o
+	gcc client/client.o err.o -o client/client.out $(CFLAGS)
 
-server: server/server.o err.o ; gcc server/server.o err.o -o server/server.out $(CFLAGS)
+server: server/server.o err.o
+	gcc server/server.o err.o -o server/server.out $(CFLAGS)
 
-%.o: %.c ; gcc -c -o $@ $< $(CFLAGS)
+%.o: %.c
+	gcc -c -o $@ $< $(CFLAGS)
 
-clean: ; rm -f *.o
+clean:
+	rm -f *.o
+	cd client && rm -f *.o *.out
+	cd server && rm -f *.o *.out
