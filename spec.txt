@@ -1,0 +1,15 @@
+request codes
+1 GET
+2 GET_LATEST
+3 LAST_MODIFIED
+4 SET
+5 SET_MULTIPART
+
+response codes
+50 OK
+51 OK_DATA
+53 OK_DATA_MULTIPART
+54 ERROR
+
+USAGE:
+cmd [arg ...]] [dataLength, data]
