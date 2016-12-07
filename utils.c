@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include "utils.h"
 
-bool read_uint8(int socket, uint8_t *num) {
-    uint8_t ret;
+bool read_uint16(int socket, uint16_t *num) {
+    uint16_t ret;
     char *data = (char*)&ret;
     int left = sizeof(ret);
     int rc;
@@ -24,7 +24,7 @@ bool read_uint8(int socket, uint8_t *num) {
     return true;
 }
 
-bool readString(int socket, char *buffer, int len) {
+bool read_str(int socket, char *buffer, int len) {
     int left = len;
     char *data = buffer;
     int rc;

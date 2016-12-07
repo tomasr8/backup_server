@@ -4,71 +4,109 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "commands.h"
 #include "err.h"
+#include "utils.h"
+#include "client_utils.h"
 
-#define RCVBUFFSIZE 32
+#define LINE_SIZE 264
 
-void dieWithError(char *errorMessage);
+void read_send_recv(socklen_t sock);
 
 int main(int argc, char *argv[]) {
+    struct sockaddr_in primary_addr;
+    char *primaryIP;
+    int primary_port;
+    socklen_t sock;
 
-  int sock;
-    struct sockaddr_in echoServAddr;
-    unsigned short echoServPort;
-    char *servIP;
-    char *echoString;
-    char echoBuffer[RCVBUFFSIZE];
-    unsigned int echoStringLen;
-    int bytesRcvd, totalBytesRcvd;
-
-    if((argc < 3) || (argc > 4)) {
-      fprintf(stderr, "Wrong number of arguments");
+    if(argc != 3) {
+      fprintf(stderr, "Usage:\n");
+      fprintf(stderr, "client <server-port> <server-ip-address> <backup-server-port> <backup-server-ip-address>\n");
       exit(1);
     }
 
-    servIP = argv[1];
-    echoString = argv[2];
+    primary_port = (int) strtol(argv[1], (char **)NULL, 10);
+    //secondary_port = (int) strtol(argv[3], (char **)NULL, 10);
 
-    if(argc == 4) {
-      echoServPort = atoi(argv[3]);
-    } else {
-      echoServPort = 7;
+    primaryIP = argv[2];
+    //secondaryIP = argv[4];
+
+    printf("%d %s\n", primary_port, primaryIP);
+
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        dieWithError("socket() failed");
     }
 
-    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
-      dieWithError("socket() failed");
+    memset(&primary_addr, 0, sizeof(primary_addr));
+    primary_addr.sin_family = AF_INET;
+    primary_addr.sin_addr.s_addr = inet_addr(primaryIP);
+    primary_addr.sin_port = htons(primary_port);
+
+    if (connect(sock, (struct sockaddr *) &primary_addr, sizeof(primary_addr)) < 0) {
+       dieWithError("connect() failed");
     }
 
-    memset(&echoServAddr, 0, sizeof(echoServAddr));
-    echoServAddr.sin_family = AF_INET;
-    echoServAddr.sin_addr.s_addr = inet_addr(servIP);
-    echoServAddr.sin_port = htons(echoServPort);
+    read_send_recv(sock);
 
-    if (connect(sock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0) {
-      dieWithError("connect() failed");
-    }
+    //close(sock);
 
-    echoStringLen = strlen(echoString);
+    return 0;
+}
 
-    if (send(sock, echoString, echoStringLen, 0) != echoStringLen) {
-      dieWithError("send() sent different number of bytes");
-    }
+void read_send_recv(socklen_t sock) {
+    char buffer[LINE_SIZE];
 
-    totalBytesRcvd = 0;
-    printf("Received: ");
+    while(fgets(buffer, LINE_SIZE - 1, stdin) != NULL) {
 
-    while(totalBytesRcvd < echoStringLen) {
-      if ((bytesRcvd = recv(sock, echoBuffer, RCVBUFFSIZE - 1, 0)) <= 0) {
-        dieWithError("recv() failed or connection closed prematurely");
+        if (buffer[strlen(buffer)-1] != '\n') {
+            char ch;
+            while (((ch = getchar()) != '\n') && (ch != EOF)) {}
+        }
+
+        printf("buffer length: %d\n", (int)strlen(buffer));
+
+        request req = { UNKNOWN, 0, 0, {0} };
+
+        if(!parseRequest(buffer, &req)) {
+            fprintf(stderr, "Error parsing command\n");
+            continue;
+        }
+
+        printf("to Send> cmd:%d resource:%d (%d bytes)<%s>\n", req.cmd, req.res, req.len, req.data);
+
+      //char msg[] = "Hello world";
+    //    char buff[256];
+
+    //   if(send(sock, msg, strlen(msg), 0) <= 0) {
+    //       fprintf(stderr, "send failed\n");
+    //   }
+
+        // uint16_t num = 42;
+        //
+        // num = htons(num);
+        // printf("sending %d\n", num);
+        // if(send(sock, &num, sizeof(uint16_t), 0) <= 0) {
+        //     printf("Failed to send number\n");
+        // }
+        // printf("sent number\n");
+        //
+        // if(recv(sock, buff, 255, 0) == 0) {
+        //     fprintf(stderr, "recv failed");
+        // }
+        //
+        // printf("<%s>\n", buff);
+
+      if(!send_request(sock, &req)) {
+          fprintf(stderr, "Error sending request, trying to connect to other server.. \n");
       }
 
-      totalBytesRcvd += bytesRcvd;
-      echoBuffer[bytesRcvd] = '\0';
-      printf("%s", echoBuffer);
+      response res = { UNKNOWN, 0, {0} };
+
+      if(!receive_response(sock, &res)) {
+          fprintf(stderr, "Error reading response.. \n");
+      }
+
+      printf("Response> %d (%d)<%s>\n", res.status, res.len, res.data);
+
     }
-
-    printf("\n");
-
-    close(sock);
-    return 0;
 }

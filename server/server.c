@@ -4,13 +4,14 @@
 #include <stdlib.h>     /* for atoi() and exit() */
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
+#include "commands.h"
 #include "err.h"
+#include "utils.h"
+#include "server_utils.h"
 
-#define RCVBUFSIZE 32
 #define MAXPENDING 5    /* Maximum outstanding connection requests */
 
-void HandleTCPClient(int clntSocket);   /* TCP client handling function */
-void dieWithError(char *errorMessage);
+void HandleTCPClient(int sock);   /* TCP client handling function */
 
 int main(int argc, char *argv[])
 {
@@ -30,7 +31,7 @@ int main(int argc, char *argv[])
     echoServPort = atoi(argv[1]);  /* First arg:  local port */
 
     /* Create socket for incoming connections */
-    if ((servSock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    if ((servSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
         dieWithError("socket() failed");
 
     /* Construct local address structure */
@@ -47,45 +48,60 @@ int main(int argc, char *argv[])
     if (listen(servSock, MAXPENDING) < 0)
         dieWithError("listen() failed");
 
-    for (;;) /* Run forever */
-    {
         /* Set the size of the in-out parameter */
-        clntLen = sizeof(echoClntAddr);
+    clntLen = sizeof(echoClntAddr);
 
         /* Wait for a client to connect */
-        if ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr,
-                               &clntLen)) < 0)
-            dieWithError("accept() failed");
+    if ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr,
+                           &clntLen)) < 0)
+        dieWithError("accept() failed");
 
-        /* clntSock is connected to a client! */
+    /* clntSock is connected to a client! */
 
-        printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
+    printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
 
-        HandleTCPClient(clntSock);
-    }
-    /* NOT REACHED */
+    HandleTCPClient(clntSock);
 }
 
-void HandleTCPClient(int clntSocket)
-{
-    char echoBuffer[RCVBUFSIZE];        /* Buffer for echo string */
-    int recvMsgSize;                    /* Size of received message */
+void HandleTCPClient(int sock) {
+    response res = { OK, 0, {0} };
+    char msg[] = "Success";
+    strcpy(res.data, msg);
+    res.len = strlen(msg);
 
-    /* Receive message from client */
-    if ((recvMsgSize = recv(clntSocket, echoBuffer, RCVBUFSIZE, 0)) < 0)
-        dieWithError("recv() failed");
+    while(1) {
+        //char buffer[256];
 
-    /* Send received string and receive again until end of transmission */
-    while (recvMsgSize > 0)      /* zero indicates end of transmission */
-    {
-        /* Echo message back to client */
-        if (send(clntSocket, echoBuffer, recvMsgSize, 0) != recvMsgSize)
-            dieWithError("send() failed");
+        /*if(recv(sock, buffer, 255, 0) == 0) {
+            fprintf(stderr, "recv failed");
+        }*/
 
-        /* See if there is more data to receive */
-        if ((recvMsgSize = recv(clntSocket, echoBuffer, RCVBUFSIZE, 0)) < 0)
-            dieWithError("recv() failed");
+        // uint16_t num;
+        // if(!read_uint16(sock, &num)) {
+        //     fprintf(stderr, "failed to read number\n");
+        // }
+        //
+        // printf("<%d>\n", num);
+        //
+        // if(send(sock, msg, strlen(msg), 0) <= 0) {
+        //     fprintf(stderr, "send failed");
+        // }
+
+        request req = { UNKNOWN, 0, 0, {0} };
+
+        if(!receive_request(sock, &req)) {
+            fprintf(stderr, "Error reading request\n");
+            break;
+        }
+
+        printf("Request> %d %d (%d)<%s>\n", req.cmd, req.res, req.len, req.data);
+
+        if(!send_response(sock, &res)) {
+            fprintf(stderr, "Error sending response\n");
+            break;
+        }
+
     }
 
-    close(clntSocket);    /* Close client socket */
+    close(sock);    /* Close client socket */
 }

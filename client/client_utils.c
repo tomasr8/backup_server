@@ -2,47 +2,63 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <string.h>
-#include <stdint.h>
 #include <stdbool.h>
-#include "err.h"   // dieWitherror()
-#include "commands.h" // command definitions
+#include <stdint.h>
+#include "err.h"
+#include "commands.h"
 #include "utils.h"
+#include "client_utils.h"
 
-void readStdin();
-int toNumber(char *command);
-bool sendRequest(int socket, request *req);
-bool parseRequest(char *line, request *req);
+bool receive_response(int socket, response *res) {
 
+    if(!read_uint16(socket, &res->status)) {
+        return false;
+        //dieWithError("Error reading command\n");
+    }
 
-int main() {
-    readStdin();
+    if(!read_uint16(socket, &res->len)) {
+        return false;
+        //dieWithError("Error reading data length\n");
+    }
 
-    return 0;
+    if(res->len == 0) {
+        //printf("Received response from server: Status code: %d\n", res.status);
+        return true;
+    }
+
+    if(!read_str(socket, res->data, res->len)) {
+        return false;
+        //dieWithError("Error reading data\n");
+    }
+
+      //printf("Received response from server: Status code: %d\n", res.status);
+      //printf("Data: %s\n", res.data);
+    return true;
 }
 
-bool sendRequest(int socket, request *req) {
-    uint8_t num;
+bool send_request(int socket, request *req) {
+    uint16_t num;
 
     num = htons(req->cmd);
-    if(send(socket, &num, sizeof(uint8_t), 0) <= 0) {
+    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
         printf("Failed to send cmd\n");
         return false;
     }
 
     num = htons(req->res);
-    if(send(socket, &num, sizeof(uint8_t), 0) <= 0) {
+    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
         printf("Failed to send resource\n");
+        return false;
+    }
+
+    num = htons(req->len);
+    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
+        printf("Failed to send data length\n");
         return false;
     }
 
     if(req->len == 0) {
         return true;
-    }
-
-    num = htons(req->len);
-    if(send(socket, &num, sizeof(uint8_t), 0) <= 0) {
-        printf("Failed to send data length\n");
-        return false;
     }
 
     if(send(socket, req->data, req->len, 0) <= 0) {
@@ -79,35 +95,13 @@ bool parseRequest(char *buffer, request *req) {
 
     //printf("data: <%s>", data);
 
-    req->cmd = (uint8_t) cmd;
-    req->res = (uint8_t) resource;
-    req->len = (uint8_t) (strlen(data) > 0 ? strlen(data) - 1 : 0);
+    req->cmd = (uint16_t) cmd;
+    req->res = (uint16_t) resource;
+    req->len = (uint16_t) (strlen(data) > 0 ? strlen(data) - 1 : 0);
     strncpy(req->data, data+1, 256);
 
     return true;
 }
-
-void readStdin() {
-    const int size = 255 + 7 + 1;
-    char buffer[size];
-
-    while(fgets(buffer, size, stdin) != NULL) {
-
-      if (buffer[strlen(buffer)-1] != '\n') {
-        char ch;
-        while (((ch = getchar()) != '\n') && (ch != EOF)) {}
-      }
-
-      request req = { UNKNOWN, 0, 0, {0} };
-
-      if(!parseRequest(buffer, &req)) {
-          continue;
-      }
-
-      printf("to Send> %d %d %d<%s>\n", req.cmd, req.res, req.len, req.data);
-    }
-}
-
 
 int toNumber(char *command) {
     if(strcmp("get", command) == 0) {
