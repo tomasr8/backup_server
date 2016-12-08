@@ -5,7 +5,6 @@
 #include <string.h>
 #include <unistd.h>
 #include "commands.h"
-#include "err.h"
 #include "utils.h"
 #include "client_utils.h"
 
@@ -67,7 +66,7 @@ void read_send_recv(socklen_t sock) {
 
         request req = { UNKNOWN, 0, 0, {0} };
 
-        if(!parseRequest(buffer, &req)) {
+        if(!parse_line(buffer, &req)) {
             fprintf(stderr, "Error parsing command\n");
             continue;
         }

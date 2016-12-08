@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "err.h"
 #include "commands.h"
 #include "utils.h"
 #include "client_utils.h"
@@ -69,7 +68,7 @@ bool send_request(int socket, request *req) {
     return true;
 }
 
-bool parseRequest(char *buffer, request *req) {
+bool parse_line(char *buffer, request *req) {
     char cmdStr[4] = {0};
     char data[257] = {0};
     int resource = -1;
@@ -81,7 +80,7 @@ bool parseRequest(char *buffer, request *req) {
         return false;
     }
 
-    int cmd = toNumber(cmdStr);
+    int cmd = to_number(cmdStr);
 
     if(cmd == UNKNOWN) {
         fprintf(stderr, "Uknnown command\n");
@@ -101,7 +100,7 @@ bool parseRequest(char *buffer, request *req) {
     return true;
 }
 
-int toNumber(char *command) {
+int to_number(char *command) {
     if(strcmp("get", command) == 0) {
         return GET;
     } else if(strcmp("set", command) == 0) {

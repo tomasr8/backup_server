@@ -4,7 +4,6 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "err.h"
 #include "commands.h"
 #include "utils.h"
 #include "server_utils.h"

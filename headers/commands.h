@@ -1,19 +1,28 @@
 #ifndef COMMANDS_H_
 #define COMMANDS_H_
 
-#define GET 1 // gets from both servers if possible
-#define GET_ONCE 2 // gets from current server
+/**
+* Definitions of commands and statuses
+* used in the application protocol
+*
+*/
+
+/* Commands used in requests */
+
+// returns resource from both servers if possible
+#define GET 1
+// returns ctime from current server
 #define LAST_MODIFIED 3
-#define SET 4 // sets on both servers
-#define SET_ONCE 5 // sets on current server
-#define SET_MULTIPART 6
-#define SET_MULTIPART_FINISHED 7
+// sets resource on both servers
+#define SET 4
 
-#define OK 50
-#define OK_DATA_MULTIPART 51
-#define OK_DATA_MULTIPART_FINISHED 52
-#define ERROR 53
+/* Statuses used in responses */
 
+// returned with optional message on success
+#define OK 200
+// returned from server on error
+#define ERROR 400
+// placeholder command
 #define UNKNOWN 0
 
 #endif

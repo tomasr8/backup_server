@@ -1,8 +1,15 @@
+#include <stdlib.h>
+#include <stdio.h>
 #include <stdint.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <stdbool.h>
 #include "utils.h"
+
+void dieWithError(const char *errorMessage) {
+    perror (errorMessage);
+    exit(1);
+}
 
 bool read_uint16(int socket, uint16_t *num) {
     uint16_t ret;

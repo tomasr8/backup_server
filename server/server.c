@@ -5,7 +5,6 @@
 #include <string.h>     /* for memset() */
 #include <unistd.h>     /* for close() */
 #include "commands.h"
-#include "err.h"
 #include "utils.h"
 #include "server_utils.h"
 
