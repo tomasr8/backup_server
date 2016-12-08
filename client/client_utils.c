@@ -41,19 +41,19 @@ bool send_request(int socket, request *req) {
 
     num = htons(req->cmd);
     if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        printf("Failed to send cmd\n");
+        fprintf(stderr, "Failed to send cmd\n");
         return false;
     }
 
     num = htons(req->res);
     if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        printf("Failed to send resource\n");
+        fprintf(stderr, "Failed to send resource\n");
         return false;
     }
 
     num = htons(req->len);
     if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        printf("Failed to send data length\n");
+        fprintf(stderr, "Failed to send data length\n");
         return false;
     }
 
@@ -62,7 +62,7 @@ bool send_request(int socket, request *req) {
     }
 
     if(send(socket, req->data, req->len, 0) <= 0) {
-        printf("Failed to send data\n");
+        fprintf(stderr, "Failed to send data\n");
         return false;
     }
 
@@ -93,12 +93,10 @@ bool parseRequest(char *buffer, request *req) {
         return false;
     }
 
-    //printf("data: <%s>", data);
-
     req->cmd = (uint16_t) cmd;
     req->res = (uint16_t) resource;
     req->len = (uint16_t) (strlen(data) > 0 ? strlen(data) - 1 : 0);
-    strncpy(req->data, data+1, 256);
+    strncpy(req->data, data+1, 256); // data[0] is space separating resource and data
 
     return true;
 }
