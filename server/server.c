@@ -12,8 +12,8 @@
 
 void HandleTCPClient(int sock);   /* TCP client handling function */
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
+
     int servSock;                    /* Socket descriptor for server */
     int clntSock;                    /* Socket descriptor for client */
     struct sockaddr_in echoServAddr; /* Local address */

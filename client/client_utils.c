@@ -1,12 +1,103 @@
-#include <stdio.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <string.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include "commands.h"
-#include "utils.h"
 #include "client_utils.h"
+
+void read_send_recv(socklen_t sock) {
+    char buffer[LINE_SIZE];
+    
+    while(fgets(buffer, LINE_SIZE - 1, stdin) != NULL) {
+
+        if (buffer[strlen(buffer)-1] != '\n') {
+            char ch;
+            while (((ch = getchar()) != '\n') && (ch != EOF)) {}
+        }
+
+        //printf("buffer length: %d\n", (int)strlen(buffer));
+
+        request req = { UNKNOWN, 0, 0, {0} };
+
+        if(!parse_line(buffer, &req)) {
+            fprintf(stderr, "Error parsing command\n");
+            continue;
+        }
+
+        printf("to Send> cmd:%d resource:%d (%d bytes)<%s>\n", req.cmd, req.res, req.len, req.data);
+
+        if(!send_request(sock, &req)) {
+            fprintf(stderr, "Error sending request, trying to connect to other server.. \n");
+        }
+
+        response res = { UNKNOWN, 0, {0} };
+
+        if(!receive_response(sock, &res)) {
+            fprintf(stderr, "Error reading response.. \n");
+        }
+
+        printf("Response> %d (%d)<%s>\n", res.status, res.len, res.data);
+    }
+}
+
+socklen_t get_socket(char const *ip, int port, struct sockaddr_in *addr) {
+    socklen_t sock;
+    fd_set fdset;
+    struct timeval tv;
+
+    fprintf(stderr, "trying to connect to %s on port %d\n", ip, port);
+
+    if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
+        fprintf(stderr, "socket() call failed\n");
+        return -1;
+    }
+
+    memset(addr, 0, sizeof(*addr));
+    addr->sin_family = AF_INET;
+    addr->sin_addr.s_addr = inet_addr(ip);
+    addr->sin_port = htons(port);
+
+    if(fcntl(sock, F_SETFL, O_NONBLOCK) < 0) {
+        close(sock);
+        fprintf(stderr, "Could not set socket to non-blocking\n");
+    }
+
+    connect(sock, (struct sockaddr *) addr, sizeof(*addr));
+
+    FD_ZERO(&fdset);
+    FD_SET(sock, &fdset);
+    tv.tv_sec = 10;             /* 10 second timeout */
+    tv.tv_usec = 0;
+
+    if (select(sock + 1, NULL, &fdset, NULL, &tv) == 1) {
+        int so_error;
+        socklen_t len = sizeof so_error;
+
+        getsockopt(sock, SOL_SOCKET, SO_ERROR, &so_error, &len);
+
+        if (so_error == 0) {
+            int opts;
+
+            if((opts = fcntl(sock, F_GETFL)) < 0) {
+                fprintf(stderr, "fnctl(F_GETFL) failed\n");
+                close(sock);
+                return -1;
+            }
+
+            opts = opts & (~O_NONBLOCK);
+
+            if (fcntl(sock, F_SETFL, opts) < 0) {
+                fprintf(stderr, "fnctl(F_SETFL) failed\n");
+                close(sock);
+                return -1;
+            }
+
+            fprintf(stderr, "Socket is open\n");
+            return sock;
+        }
+
+        fprintf(stderr, "Connection failed with error %d\n", so_error);
+    }
+
+    close(sock);
+
+    return -1;
+}
 
 bool receive_response(int socket, response *res) {
 
@@ -21,7 +112,7 @@ bool receive_response(int socket, response *res) {
     }
 
     if(res->len == 0) {
-        //printf("Received response from server: Status code: %d\n", res.status);
+        res->data[0] = '\0';
         return true;
     }
 
@@ -30,8 +121,6 @@ bool receive_response(int socket, response *res) {
         //dieWithError("Error reading data\n");
     }
 
-      //printf("Received response from server: Status code: %d\n", res.status);
-      //printf("Data: %s\n", res.data);
     return true;
 }
 
@@ -94,7 +183,7 @@ bool parse_line(char *buffer, request *req) {
 
     req->cmd = (uint16_t) cmd;
     req->res = (uint16_t) resource;
-    req->len = (uint16_t) (strlen(data) > 0 ? strlen(data) - 1 : 0);
+    req->len = (uint16_t) (strlen(data) > 0 ? strlen(data) - 1 : 0); // not counting the leading space
     strncpy(req->data, data+1, 256); // data[0] is space separating resource and data
 
     return true;

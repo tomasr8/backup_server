@@ -1,15 +1,14 @@
-CFLAGS=-Wall -Werror -std=c99
+CFLAGS=-Wall -Werror -std=c99 -I/home/tomas/Documents/backup_server/headers
 
-client: client/client.o err.o
-	gcc client/client.o err.o -o client/client.out $(CFLAGS)
+client: client/client.c client/client_utils.c utils.c
+	gcc $(CFLAGS) -o client/client.out client/client.c client/client_utils.c utils.c
 
-server: server/server.o err.o
-	gcc server/server.o err.o -o server/server.out $(CFLAGS)
+server: server/server.c server/server_utils.c
+	gcc $(CFLAGS) -o server/server.out server/server.c server/server_utils.c utils.c
 
 %.o: %.c
 	gcc -c -o $@ $< $(CFLAGS)
 
 clean:
-	rm -f *.o
-	cd client && rm -f *.o *.out
-	cd server && rm -f *.o *.out
+	cd client && rm -f *.out
+	cd server && rm -f *.out
