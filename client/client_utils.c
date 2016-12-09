@@ -2,7 +2,7 @@
 
 void read_send_recv(socklen_t sock) {
     char buffer[LINE_SIZE];
-    
+
     while(fgets(buffer, LINE_SIZE - 1, stdin) != NULL) {
 
         if (buffer[strlen(buffer)-1] != '\n') {
@@ -35,8 +35,8 @@ void read_send_recv(socklen_t sock) {
     }
 }
 
-socklen_t get_socket(char const *ip, int port, struct sockaddr_in *addr) {
-    socklen_t sock;
+int get_socket(char const *ip, int port, struct sockaddr_in *addr) {
+    int sock;
     fd_set fdset;
     struct timeval tv;
 
@@ -55,6 +55,7 @@ socklen_t get_socket(char const *ip, int port, struct sockaddr_in *addr) {
     if(fcntl(sock, F_SETFL, O_NONBLOCK) < 0) {
         close(sock);
         fprintf(stderr, "Could not set socket to non-blocking\n");
+        return -1;
     }
 
     connect(sock, (struct sockaddr *) addr, sizeof(*addr));

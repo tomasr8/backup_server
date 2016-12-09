@@ -2,7 +2,7 @@
 #define COMMANDS_H_
 
 /**
-* Definitions of commands and statuses
+* Definitions of commands, statuses and errors
 * used in the application protocol
 *
 */
@@ -24,5 +24,9 @@
 #define ERROR 400
 // placeholder command
 #define UNKNOWN 0
+
+/* Erros */
+
+#define E_DISCONNECTED -10
 
 #endif

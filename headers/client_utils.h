@@ -42,7 +42,7 @@ bool parse_line(char *buffer, request *req);
 */
 int to_number(char *command);
 
-socklen_t get_socket(char const *ip, int port, struct sockaddr_in *addr);
+int get_socket(char const *ip, int port, struct sockaddr_in *addr);
 
 void read_send_recv(socklen_t sock);
 
