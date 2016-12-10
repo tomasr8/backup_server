@@ -21,7 +21,7 @@ int main(int argc, char *argv[]) {
 
     signal(SIGPIPE, SIG_IGN);
 
-    sock = get_socket_multiple(IPs, ports, 2, &addr);
+    sock = get_socket_multiple(IPs, ports, 2, &addr, CLIENT);
 
     if(sock < 0) {
         fprintf(stderr, "Failed to establish connection to server\n");
@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Connection problem, reconnecting.. \n");
 
             do {
-                sock = get_socket_multiple(IPs, ports, 2, &addr);
+                sock = get_socket_multiple(IPs, ports, 2, &addr, CLIENT);
                 status = parse_send_recv(sock, buffer);
             } while(status == E_CONNECTION && sock >= 0);
         }

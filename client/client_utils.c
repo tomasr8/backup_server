@@ -26,17 +26,17 @@ int parse_send_recv(socklen_t sock, char *buffer) {
     return 0;
 }
 
-int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr) {
+int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr, int id) {
     int sock = -1;
     for(int i = 0; i < len; i++) {
-        if((sock = get_socket(IPs[i], ports[i], addr)) >= 0) {
+        if((sock = get_socket(IPs[i], ports[i], addr, id)) >= 0) {
             break;
         }
     }
     return sock;
 }
 
-int get_socket(char const *ip, int port, struct sockaddr_in *addr) {
+int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
     int sock;
     fd_set fdset;
     struct timeval tv;
@@ -89,7 +89,7 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr) {
                 return -1;
             }
 
-            if(!send_id(sock, CLIENT)) {
+            if(!send_id(sock, id)) {
                 fprintf(stderr, "Failed to send identification\n");
                 return -1;
             }
