@@ -68,23 +68,15 @@ void HandleTCPClient(int sock) {
     strcpy(res.data, msg);
     res.len = strlen(msg);
 
+    uint16_t id;
+    if(!read_uint16(sock, &id)) {
+        fprintf(stderr, "Connection failed to send identification\n");
+        return;
+    }
+
+    fprintf(stderr, "id: %d\n", (int)id);
+
     while(1) {
-        //char buffer[256];
-
-        /*if(recv(sock, buffer, 255, 0) == 0) {
-            fprintf(stderr, "recv failed");
-        }*/
-
-        // uint16_t num;
-        // if(!read_uint16(sock, &num)) {
-        //     fprintf(stderr, "failed to read number\n");
-        // }
-        //
-        // printf("<%d>\n", num);
-        //
-        // if(send(sock, msg, strlen(msg), 0) <= 0) {
-        //     fprintf(stderr, "send failed");
-        // }
 
         request req = { UNKNOWN, 0, 0, {0} };
 

@@ -11,14 +11,24 @@ void dieWithError(const char *errorMessage) {
     exit(1);
 }
 
-bool read_uint16(int socket, uint16_t *num) {
+bool send_id(int sock, uint16_t id) {
+    id = htons(id);
+    return send(sock, &id, sizeof(uint16_t), 0) > 0;
+}
+
+bool send_uint16(int sock, uint16_t num) {
+    num = htons(num);
+    return send(sock, &num, sizeof(uint16_t), 0) > 0;
+}
+
+bool read_uint16(int sock, uint16_t *num) {
     uint16_t ret;
     char *data = (char*)&ret;
     int left = sizeof(ret);
     int rc;
 
     do {
-        rc = recv(socket, data, left, 0);
+        rc = recv(sock, data, left, 0);
         if (rc <= 0) {
             return false;
         } else {
@@ -31,13 +41,13 @@ bool read_uint16(int socket, uint16_t *num) {
     return true;
 }
 
-bool read_str(int socket, char *buffer, int len) {
+bool read_str(int sock, char *buffer, int len) {
     int left = len;
     char *data = buffer;
     int rc;
 
     do {
-        rc = recv(socket, data, left, 0);
+        rc = recv(sock, data, left, 0);
         if (rc <= 0) {
             buffer[0] = '\0';
             return false;

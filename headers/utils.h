@@ -41,13 +41,17 @@ void dieWithError(char const *errorMessage);
 * reads 4 bytes from a socet into a usigned 16 bit integer
 * @returns true on success
 */
-bool read_uint16(int socket, uint16_t *num);
+bool read_uint16(int sock, uint16_t *num);
 
 /**
 * reads <len> bytes from socket into <buffer>,
 * appends null terminator to the end
 * @returns true on success
 */
-bool read_str(int socket, char *buffer, int len);
+bool read_str(int sock, char *buffer, int len);
+
+bool send_id(int sock, uint16_t id);
+
+bool send_uint16(int sock, uint16_t num);
 
 #endif

@@ -1,38 +1,39 @@
 #include "client_utils.h"
 
-void read_send_recv(socklen_t sock) {
-    char buffer[LINE_SIZE];
+int parse_send_recv(socklen_t sock, char *buffer) {
 
-    while(fgets(buffer, LINE_SIZE - 1, stdin) != NULL) {
+    request req = { UNKNOWN, 0, 0, {0} };
 
-        if (buffer[strlen(buffer)-1] != '\n') {
-            char ch;
-            while (((ch = getchar()) != '\n') && (ch != EOF)) {}
-        }
-
-        //printf("buffer length: %d\n", (int)strlen(buffer));
-
-        request req = { UNKNOWN, 0, 0, {0} };
-
-        if(!parse_line(buffer, &req)) {
-            fprintf(stderr, "Error parsing command\n");
-            continue;
-        }
-
-        printf("to Send> cmd:%d resource:%d (%d bytes)<%s>\n", req.cmd, req.res, req.len, req.data);
-
-        if(!send_request(sock, &req)) {
-            fprintf(stderr, "Error sending request, trying to connect to other server.. \n");
-        }
-
-        response res = { UNKNOWN, 0, {0} };
-
-        if(!receive_response(sock, &res)) {
-            fprintf(stderr, "Error reading response.. \n");
-        }
-
-        printf("Response> %d (%d)<%s>\n", res.status, res.len, res.data);
+    if(!parse_line(buffer, &req)) {
+        return E_PARSE;
     }
+
+    fprintf(stderr, "to send> cmd:%d resource:%d (%d bytes)<%s>\n", req.cmd, req.res, req.len, req.data);
+
+    if(!send_request(sock, &req)) {
+        return E_CONNECTION;
+    }
+
+    response res = { UNKNOWN, 0, {0} };
+
+    if(!receive_response(sock, &res)) {
+        fprintf(stderr, "Error reading response.. \n");
+        return E_CONNECTION;
+    }
+
+    printf("Response> %d (%d)<%s>\n", res.status, res.len, res.data);
+
+    return 0;
+}
+
+int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr) {
+    int sock = -1;
+    for(int i = 0; i < len; i++) {
+        if((sock = get_socket(IPs[i], ports[i], addr)) >= 0) {
+            break;
+        }
+    }
+    return sock;
 }
 
 int get_socket(char const *ip, int port, struct sockaddr_in *addr) {
@@ -88,6 +89,11 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr) {
                 return -1;
             }
 
+            if(!send_id(sock, CLIENT)) {
+                fprintf(stderr, "Failed to send identification\n");
+                return -1;
+            }
+
             fprintf(stderr, "Socket is open\n");
             return sock;
         }
@@ -104,12 +110,10 @@ bool receive_response(int socket, response *res) {
 
     if(!read_uint16(socket, &res->status)) {
         return false;
-        //dieWithError("Error reading command\n");
     }
 
     if(!read_uint16(socket, &res->len)) {
         return false;
-        //dieWithError("Error reading data length\n");
     }
 
     if(res->len == 0) {
@@ -119,43 +123,60 @@ bool receive_response(int socket, response *res) {
 
     if(!read_str(socket, res->data, res->len)) {
         return false;
-        //dieWithError("Error reading data\n");
     }
 
     return true;
 }
 
-bool send_request(int socket, request *req) {
-    uint16_t num;
+bool send_request(int sock, request *req) {
+    bool res = send_uint16(sock, req->cmd) &&
+        send_uint16(sock, req->res) &&
+        send_uint16(sock, req->len);
 
-    num = htons(req->cmd);
-    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        fprintf(stderr, "Failed to send cmd\n");
+    if(!res) {
+        fprintf(stderr, "Failed to send request parameters\n");
         return false;
-    }
-
-    num = htons(req->res);
-    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        fprintf(stderr, "Failed to send resource\n");
-        return false;
-    }
-
-    num = htons(req->len);
-    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        fprintf(stderr, "Failed to send data length\n");
-        return false;
-    }
-
-    if(req->len == 0) {
+    } else if(req->len == 0) {
         return true;
     }
 
-    if(send(socket, req->data, req->len, 0) <= 0) {
+    if(send(sock, req->data, req->len, 0) <= 0) {
         fprintf(stderr, "Failed to send data\n");
         return false;
     }
 
     return true;
+
+
+    //uint16_t num;
+    // num = htons(req->cmd);
+    // if(send(sock, &num, sizeof(uint16_t), 0) <= 0) {
+    //     fprintf(stderr, "Failed to send cmd\n");
+    //     return false;
+    // }
+    //
+    // num = htons(req->res);
+    // if(send(sock, &num, sizeof(uint16_t), 0) <= 0) {
+    //     fprintf(stderr, "Failed to send resource\n");
+    //     return false;
+    // }
+    //
+    // num = htons(req->len);
+    // if(send(sock, &num, sizeof(uint16_t), 0) <= 0) {
+    //     fprintf(stderr, "Failed to send data length\n");
+    //     return false;
+    // }
+    //
+    // if(req->len == 0) {
+    //     return true;
+    // }
+    //
+    // if(send(sock, req->data, req->len, 0) <= 0) {
+    //     fprintf(stderr, "Failed to send data\n");
+    //     return false;
+    // }
+    //
+    // return true;
 }
 
 bool parse_line(char *buffer, request *req) {

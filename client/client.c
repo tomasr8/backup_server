@@ -19,24 +19,52 @@ int main(int argc, char *argv[]) {
     IPs[0] = argv[2];
     IPs[1] = argv[4];
 
-    //printf("%d %s %d %s\n", ports[0], IPs[0], ports[1], IPs[1]);
+    signal(SIGPIPE, SIG_IGN);
 
-    for(int i = 0; i < 2; i++) {
-        if((sock = get_socket(IPs[i], ports[i], &addr)) >= 0) {
-            break;
-        }
-    }
+    sock = get_socket_multiple(IPs, ports, 2, &addr);
 
     if(sock < 0) {
-        dieWithError("Failed to establish connection to server\n");
+        fprintf(stderr, "Failed to establish connection to server\n");
+        return EXIT_FAILURE;
     }
 
-    fprintf(stderr, "Connected to: %s on port %d, socket no. %d\n",
-        inet_ntoa(addr.sin_addr), (int) ntohs(addr.sin_port), sock);
+    char buffer[LINE_SIZE];
+    while(fgets(buffer, LINE_SIZE - 1, stdin) != NULL) {
+        int status;
 
-    read_send_recv(sock);
+        if (buffer[strlen(buffer)-1] != '\n') {
+            char ch;
+            while (((ch = getchar()) != '\n') && (ch != EOF)) {}
+        }
 
-    close(sock);
+        status = parse_send_recv(sock, buffer);
 
-    return 0;
+        if(status == E_PARSE) {
+            fprintf(stderr, "Error parsing command\n");
+        } else if(status == E_CONNECTION) {
+            fprintf(stderr, "Connection problem, reconnecting.. \n");
+
+            do {
+                sock = get_socket_multiple(IPs, ports, 2, &addr);
+                status = parse_send_recv(sock, buffer);
+            } while(status == E_CONNECTION && sock >= 0);
+        }
+
+    }
+
+    // while(sock >= 0) {
+    //     fprintf(stderr, "Connected to: %s on port %d, socket no. %d\n",
+    //         inet_ntoa(addr.sin_addr), (int) ntohs(addr.sin_port), sock);
+    //
+    //     if(read_send_recv(sock)) {
+    //         printf("EOF reached\n");
+    //         return 0;
+    //     }
+    //
+    //     sock = get_socket_multiple(IPs, ports, 2, &addr);
+    // }
+    //
+    // fprintf(stderr, "Failed to establish connection to server\n");
+
+    return 1;
 }

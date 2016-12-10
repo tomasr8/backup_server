@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <signal.h>
 #include "commands.h"
 #include "utils.h"
 
@@ -42,8 +43,24 @@ bool parse_line(char *buffer, request *req);
 */
 int to_number(char *command);
 
+/**
+* @returns socket for <ip> and <port> and fills struct <addr>
+* on error returns -1;
+*/
 int get_socket(char const *ip, int port, struct sockaddr_in *addr);
 
-void read_send_recv(socklen_t sock);
+/**
+* returns socket for one of the <IPs> and <ports>
+* or -1 if no connection can be made
+*/
+int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr);
+
+/**
+* reads commands from stdin, parses them, sends them,
+* receives response and prints it to stdout.
+* handles closing socket <sock>
+* @returns true if EOF was reached, on error returns false.
+*/
+int parse_send_recv(socklen_t sock, char *buffer);
 
 #endif

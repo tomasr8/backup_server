@@ -27,6 +27,12 @@
 
 /* Erros */
 
-#define E_DISCONNECTED -10
+#define E_CONNECTION -10
+#define E_PARSE -20
+
+/* Identification */
+
+#define CLIENT 123
+#define SERVER 456
 
 #endif
