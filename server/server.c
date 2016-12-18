@@ -1,16 +1,12 @@
-#include <stdio.h>      /* for printf() and fprintf() */
-#include <sys/socket.h> /* for socket(), bind(), and connect() */
-#include <arpa/inet.h>  /* for sockaddr_in and inet_ntoa() */
-#include <stdlib.h>     /* for atoi() and exit() */
-#include <string.h>     /* for memset() */
-#include <unistd.h>     /* for close() */
-#include "commands.h"
-#include "utils.h"
 #include "server_utils.h"
 
 #define MAXPENDING 5    /* Maximum outstanding connection requests */
+pthread_mutex_t mutex_arr[RESOURCE_MAX];
+char *dir;
 
-void HandleTCPClient(int sock);   /* TCP client handling function */
+void * handle_connection(void * sock_ptr);   /* TCP client handling function */
+bool handle_client(int sock);
+
 
 int main(int argc, char *argv[]) {
 
@@ -21,17 +17,34 @@ int main(int argc, char *argv[]) {
     unsigned short echoServPort;     /* Server port */
     unsigned int clntLen;            /* Length of client address data structure */
 
-    if (argc != 2)     /* Test for correct number of arguments */
-    {
-        fprintf(stderr, "Usage:  %s <Server Port>\n", argv[0]);
+    if (argc != 3) {
+        fprintf(stderr, "Usage: <Server Port> <folder>\n");
         exit(1);
     }
 
-    echoServPort = atoi(argv[1]);  /* First arg:  local port */
+    dir = argv[2];
+    echoServPort = atoi(argv[1]);
+
+    if(!check_resources(argv[2])) {
+        fprintf(stderr, "failed to access required resources\n");
+        return 1;
+    }
+
+    for(int i = 0; i < RESOURCE_MAX; i++) {
+        if(pthread_mutex_init(&mutex_arr[i], NULL) != 0) {
+            fprintf(stderr, "failed to create mutex no: %d\n", i);
+            return 1;
+        }
+    }
+
+    // for(int i = 0; i < RESOURCE_MAX; i++) {
+    //     pthread_mutex_destroy(&mutex_arr[i]);
+    // }
 
     /* Create socket for incoming connections */
-    if ((servSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+    if ((servSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         dieWithError("socket() failed");
+    }
 
     /* Construct local address structure */
     memset(&echoServAddr, 0, sizeof(echoServAddr));   /* Zero out structure */
@@ -40,59 +53,111 @@ int main(int argc, char *argv[]) {
     echoServAddr.sin_port = htons(echoServPort);      /* Local port */
 
     /* Bind to the local address */
-    if (bind(servSock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0)
+    if (bind(servSock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0) {
         dieWithError("bind() failed");
+    }
 
     /* Mark the socket so it will listen for incoming connections */
-    if (listen(servSock, MAXPENDING) < 0)
+    if (listen(servSock, MAXPENDING) < 0) {
         dieWithError("listen() failed");
+    }
 
         /* Set the size of the in-out parameter */
     clntLen = sizeof(echoClntAddr);
 
         /* Wait for a client to connect */
-    if ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr,
-                           &clntLen)) < 0)
-        dieWithError("accept() failed");
+    while ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr, &clntLen)) >= 0) {
+        printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
+        pthread_t worker;
+        int sock = clntSock;
+        // int *sock_ptr = malloc(sizeof(int));
+        // *sock_ptr = clntSock;
 
-    /* clntSock is connected to a client! */
+        if(pthread_create(&worker, NULL, handle_connection, (void *)&sock)) {
+            fprintf(stderr, "Failed to create a thread\n");
+            close(sock);
+            //free(sock_ptr);
+        }
+    }
 
-    printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
-
-    HandleTCPClient(clntSock);
 }
 
-void HandleTCPClient(int sock) {
-    response res = { OK, 0, {0} };
-    char msg[] = "Success";
-    strcpy(res.data, msg);
-    res.len = strlen(msg);
+bool handle_client(int sock) {
+    response res = { UNKNOWN, 0, NULL };
+
+    request req = { UNKNOWN, 0, 0, {0} };
+    if(!read_request(sock, &req)) {
+        fprintf(stderr, "Error reading request\n");
+        return false;
+    }
+
+    printf("Request> %d %d (%d)<%s>\n", req.cmd, req.res, req.len, req.data);
+
+    if(req.cmd == GET) {
+        char *path = path_join(dir, req.res);
+        FILE *fp = fopen(path, "r");
+
+        if(fp == NULL) {
+            fprintf(stderr, "Error opening file\n");
+            res.status = ERROR;
+            res.data = "Error opening file";
+            res.len = strlen(res.data);
+        } else {
+            char buffer[MAX_SIZE + 1];
+            size_t len = fread(buffer, sizeof(char), MAX_SIZE, fp);
+            if ( ferror( fp ) != 0 ) {
+                fprintf(stderr, "Error reading file\n");
+                res.status = ERROR;
+                res.data = "Error reading file";
+                res.len = strlen(res.data);
+            } else {
+                fprintf(stderr, "file read successfull\n");
+                buffer[len] = '\0'; /* Just to be safe. */
+                res.status = OK;
+                res.data = buffer;
+                res.len = strlen(res.data);
+            }
+
+            fclose(fp);
+        }
+    } else {
+        res.status = OK;
+        res.data = "Success";
+        res.len = strlen(res.data);
+    }
+
+    if(!send_response(sock, &res)) {
+        fprintf(stderr, "Error sending response\n");
+        return false;
+    }
+
+    return true;
+}
+
+void * handle_connection(void *sock_ptr) {
+    int sock = *((int *)sock_ptr);
+
+    fprintf(stderr, "thread started\n");
 
     uint16_t id;
     if(!read_uint16(sock, &id)) {
         fprintf(stderr, "Connection failed to send identification\n");
-        return;
+        return 0;
     }
 
     fprintf(stderr, "id: %d\n", (int)id);
 
     while(1) {
-
-        request req = { UNKNOWN, 0, 0, {0} };
-
-        if(!receive_request(sock, &req)) {
-            fprintf(stderr, "Error reading request\n");
+        if(id == CLIENT) {
+            if(!handle_client(sock)) break;
+        } else {
+            fprintf(stderr, "not implemented\n");
             break;
         }
-
-        printf("Request> %d %d (%d)<%s>\n", req.cmd, req.res, req.len, req.data);
-
-        if(!send_response(sock, &res)) {
-            fprintf(stderr, "Error sending response\n");
-            break;
-        }
-
     }
 
     close(sock);    /* Close client socket */
+    //free(sock_ptr);
+    fprintf(stderr, "thread finished\n");
+    return 0;
 }

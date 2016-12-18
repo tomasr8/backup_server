@@ -8,7 +8,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <signal.h>
-#include "commands.h"
 #include "utils.h"
 
 #ifndef CLIENT_UTILS_H_

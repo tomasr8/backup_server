@@ -1,8 +1,11 @@
 #include <stdbool.h>
 #include <stdint.h>
+#include "constants.h"
 
 #ifndef UTILS_H_
 #define UTILS_H_
+
+#define MAX_SIZE 255
 
 /**
 * struct used to represent a single request
@@ -16,7 +19,7 @@ typedef struct request {
     uint16_t cmd;
     uint16_t res;
     uint16_t len;
-    char data[256];
+    char data[MAX_SIZE + 1];
 } request;
 
 /**
@@ -29,8 +32,13 @@ typedef struct request {
 typedef struct response {
     uint16_t status;
     uint16_t len;
-    char data[256];
+    char *data;
 } response;
+
+typedef struct response_lm {
+    uint16_t status;
+    uint32_t time;
+} response_lm;
 
 /**
 * shortuct for perror() & exit(1)

@@ -186,7 +186,7 @@ bool parse_line(char *buffer, request *req) {
 
     int numRead = sscanf(buffer, "%3s%*[ ]%d%256[^\n]s", cmdStr, &resource, data);
 
-    if(resource < 0 || resource > 32) {
+    if(resource < 0 || resource > RESOURCE_MAX) {
         fprintf(stderr, "Invalid resource: %d\n", resource);
         return false;
     }

@@ -35,4 +35,6 @@
 #define CLIENT 123
 #define SERVER 456
 
+#define RESOURCE_MAX 32
+
 #endif

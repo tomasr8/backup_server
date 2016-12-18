@@ -4,10 +4,51 @@
 #include <string.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include "commands.h"
 #include "utils.h"
 #include "server_utils.h"
 
+bool check_resources(char *dir) {
+    char* path_to_file;
+    FILE *fp;
+    for(int i = 0; i <= RESOURCE_MAX; i++) {
+        if((path_to_file = path_join(dir, i)) == NULL) {
+            fprintf(stderr, "error ocurred in path_join()\n");
+            return false;
+        }
+        fprintf(stderr, "path to file: %s\n", path_to_file);
+
+        if((fp = fopen(path_to_file, "ab+")) == NULL) {
+            fprintf(stderr, "could not open file\n");
+            return false;
+        }
+
+        free(path_to_file);
+        fclose(fp);
+    }
+
+    return true;
+}
+
+char *path_join(char *dir, int file_no) {
+    const int path_len = strlen(dir) + 8 + (int)floor(log(RESOURCE_MAX)/log(10));
+    char * joined;
+
+    if((joined = malloc(path_len)) == NULL) {
+        fprintf(stderr, "path_join(): failed malloc() enough memory\n");
+        return NULL;
+    }
+
+    char template[] = "%sres%d.txt";
+    char template_slash[] = "%s/res%d.txt";
+
+    if(dir[strlen(dir) - 1] == '/') {
+        sprintf(joined, template, dir, file_no);
+    } else {
+        sprintf(joined, template_slash, dir, file_no);
+    }
+
+    return joined;
+}
 
 bool send_response(int socket, response *res) {
     uint16_t num;
@@ -36,7 +77,7 @@ bool send_response(int socket, response *res) {
     return true;
 }
 
-bool receive_request(int socket, request *req) {
+bool read_request(int socket, request *req) {
 
     if(!read_uint16(socket, &req->cmd)) {
         return false;
