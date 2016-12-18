@@ -82,59 +82,73 @@ int main(int argc, char *argv[]) {
 
 }
 
-bool handle_client(int sock) {
-    response res = { UNKNOWN, 0, NULL };
+bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
+    response res = { UNKNOWN, 0, {0} };
 
-    request req = { UNKNOWN, 0, 0, {0} };
-    if(!read_request(sock, &req)) {
-        fprintf(stderr, "Error reading request\n");
-        return false;
+    printf("Client request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
+
+    if(req->res < 0 || req->res > RESOURCE_MAX) {
+        fprintf(stderr, "invalid resource: %d\n", req->res);
+        return true;
     }
 
-    printf("Request> %d %d (%d)<%s>\n", req.cmd, req.res, req.len, req.data);
+    if(req->cmd == SET) {
+        if(!set_resource(dir, req->res, req->data, &mutex_arr[req->res])) {
+            fprintf(stderr, "Failed to set resource\n");
 
-    if(req.cmd == GET) {
-        char *path = path_join(dir, req.res);
-        FILE *fp = fopen(path, "r");
-
-        if(fp == NULL) {
-            fprintf(stderr, "Error opening file\n");
-            res.status = ERROR;
-            res.data = "Error opening file";
-            res.len = strlen(res.data);
+            fill_response(&res, ERROR, "Failed to set resource");
         } else {
-            char buffer[MAX_SIZE + 1];
-            size_t len = fread(buffer, sizeof(char), MAX_SIZE, fp);
-            if ( ferror( fp ) != 0 ) {
-                fprintf(stderr, "Error reading file\n");
-                res.status = ERROR;
-                res.data = "Error reading file";
-                res.len = strlen(res.data);
-            } else {
-                fprintf(stderr, "file read successfull\n");
-                buffer[len] = '\0'; /* Just to be safe. */
-                res.status = OK;
-                res.data = buffer;
-                res.len = strlen(res.data);
-            }
-
-            fclose(fp);
+            fill_response(&res, OK, "Success");
         }
     } else {
-        res.status = OK;
-        res.data = "Success";
-        res.len = strlen(res.data);
+        fill_response(&res, ERROR, "Not implemented");
     }
+
+
+    // if(req->cmd == GET) {
+    //     char *path = path_join(dir, req->res);
+    //     FILE *fp = fopen(path, "r");
+    //
+    //     if(fp == NULL) {
+    //         fprintf(stderr, "Error opening file\n");
+    //         res.status = ERROR;
+    //         res.data = "Error opening file";
+    //         res.len = strlen(res.data);
+    //     } else {
+    //         char buffer[MAX_SIZE + 1];
+    //         size_t len = fread(buffer, sizeof(char), MAX_SIZE, fp);
+    //         if ( ferror( fp ) != 0 ) {
+    //             fprintf(stderr, "Error reading file\n");
+    //             res.status = ERROR;
+    //             res.data = "Error reading file";
+    //             res.len = strlen(res.data);
+    //         } else {
+    //             fprintf(stderr, "file read successfull\n");
+    //             buffer[len] = '\0'; /* Just to be safe. */
+    //             res.status = OK;
+    //             res.data = buffer;
+    //             res.len = strlen(res.data);
+    //         }
+    //
+    //         fclose(fp);
+    //     }
+    // } else {
+    //     res.status = OK;
+    //     res.data = "Success";
+    //     res.len = strlen(res.data);
+    // }
 
     if(!send_response(sock, &res)) {
         fprintf(stderr, "Error sending response\n");
         return false;
     }
 
+    fprintf(stderr, "response sent\n");
+
     return true;
 }
 
-void * handle_connection(void *sock_ptr) {
+void *handle_connection(void *sock_ptr) {
     int sock = *((int *)sock_ptr);
 
     fprintf(stderr, "thread started\n");
@@ -147,11 +161,13 @@ void * handle_connection(void *sock_ptr) {
 
     fprintf(stderr, "id: %d\n", (int)id);
 
-    while(1) {
+    request req = { UNKNOWN, 0, 0, {0} };
+    while(read_request(sock, &req)) {
         if(id == CLIENT) {
-            if(!handle_client(sock)) break;
+            fprintf(stderr, "handling client request\n");
+            if(!handle_client_request(sock, &req, mutex_arr)) break;
         } else {
-            fprintf(stderr, "not implemented\n");
+            fprintf(stderr, "server handler not implemented\n");
             break;
         }
     }

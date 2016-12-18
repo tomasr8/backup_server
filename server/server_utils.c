@@ -29,7 +29,7 @@ bool check_resources(char *dir) {
     return true;
 }
 
-char *path_join(char *dir, int file_no) {
+char *path_join(char *dir, int res) {
     const int path_len = strlen(dir) + 8 + (int)floor(log(RESOURCE_MAX)/log(10));
     char * joined;
 
@@ -42,9 +42,9 @@ char *path_join(char *dir, int file_no) {
     char template_slash[] = "%s/res%d.txt";
 
     if(dir[strlen(dir) - 1] == '/') {
-        sprintf(joined, template, dir, file_no);
+        sprintf(joined, template, dir, res);
     } else {
-        sprintf(joined, template_slash, dir, file_no);
+        sprintf(joined, template_slash, dir, res);
     }
 
     return joined;
@@ -106,4 +106,45 @@ bool read_request(int socket, request *req) {
     }
 
     return true;
+}
+
+bool set_resource(char *path, int res, char *data, pthread_mutex_t *mutex) {
+    char *fullpath = path_join(path, res);
+
+    if(fullpath == NULL) {
+        fprintf(stderr, "Failed to join path\n");
+        return false;
+    }
+
+    fprintf(stderr, "locking mutex before writing to file\n");
+    pthread_mutex_lock(mutex);
+
+    if(!write_to_file(fullpath, data)) {
+        fprintf(stderr, "Failed to write to file\n");
+    }
+    pthread_mutex_unlock(mutex);
+    free(fullpath);
+
+    return true;
+}
+
+bool write_to_file(char *path, char *data) {
+    FILE *fp;
+    if((fp = fopen(path, "w")) == NULL) {
+        fprintf(stderr, "could not open file\n");
+        return false;
+    }
+
+    fprintf(fp, "%s", data);
+    fclose(fp);
+
+    return true;
+}
+
+void fill_response(response *res, int status, char *data) {
+    res->status = status;
+    const size_t len = strlen(data);
+    strncpy(res->data, data, len);
+    res->data[len] = '\0';
+    res->len = len;
 }

@@ -14,6 +14,8 @@ int parse_send_recv(socklen_t sock, char *buffer) {
         return E_CONNECTION;
     }
 
+    fprintf(stderr, "request sent\n");
+
     response res = { UNKNOWN, 0, {0} };
 
     if(!receive_response(sock, &res)) {
@@ -146,37 +148,6 @@ bool send_request(int sock, request *req) {
     }
 
     return true;
-
-
-    //uint16_t num;
-    // num = htons(req->cmd);
-    // if(send(sock, &num, sizeof(uint16_t), 0) <= 0) {
-    //     fprintf(stderr, "Failed to send cmd\n");
-    //     return false;
-    // }
-    //
-    // num = htons(req->res);
-    // if(send(sock, &num, sizeof(uint16_t), 0) <= 0) {
-    //     fprintf(stderr, "Failed to send resource\n");
-    //     return false;
-    // }
-    //
-    // num = htons(req->len);
-    // if(send(sock, &num, sizeof(uint16_t), 0) <= 0) {
-    //     fprintf(stderr, "Failed to send data length\n");
-    //     return false;
-    // }
-    //
-    // if(req->len == 0) {
-    //     return true;
-    // }
-    //
-    // if(send(sock, req->data, req->len, 0) <= 0) {
-    //     fprintf(stderr, "Failed to send data\n");
-    //     return false;
-    // }
-    //
-    // return true;
 }
 
 bool parse_line(char *buffer, request *req) {

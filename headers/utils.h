@@ -32,7 +32,7 @@ typedef struct request {
 typedef struct response {
     uint16_t status;
     uint16_t len;
-    char *data;
+    char data[MAX_SIZE + 1];
 } response;
 
 typedef struct response_lm {
