@@ -29,7 +29,7 @@ bool check_resources(char *dir);
 
 bool set_resource(char *path, int res, char *data, pthread_mutex_t *mutex);
 bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr);
-bool handle_server_request(int sock, request *req, pthread_mutex_t *mutex_arr);
+bool handle_server_request(int sock_client, int sock_server, request *req, pthread_mutex_t *mutex_arr);
 bool write_to_file(char *path, char *data);
 
 void fill_response(response *res, int status, char *data);

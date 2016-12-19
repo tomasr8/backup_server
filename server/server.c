@@ -3,6 +3,8 @@
 #define MAXPENDING 5    /* Maximum outstanding connection requests */
 pthread_mutex_t mutex_arr[RESOURCE_MAX];
 char *dir;
+char *second_server_ip;
+int second_server_port;
 
 void * handle_connection(void * sock_ptr);   /* TCP client handling function */
 bool handle_client(int sock);
@@ -17,12 +19,14 @@ int main(int argc, char *argv[]) {
     unsigned short echoServPort;     /* Server port */
     unsigned int clntLen;            /* Length of client address data structure */
 
-    if (argc != 3) {
-        fprintf(stderr, "Usage: <Server Port> <folder>\n");
+    if (argc != 5) {
+        fprintf(stderr, "Usage: <Server Port> <Second server port> <Second server address> <folder>\n");
         exit(1);
     }
 
-    dir = argv[2];
+    second_server_port = atoi(argv[2]);
+    second_server_ip = argv[3];
+    dir = argv[4];
     echoServPort = atoi(argv[1]);
 
     if(!check_resources(argv[2])) {
@@ -82,6 +86,10 @@ int main(int argc, char *argv[]) {
 
 }
 
+bool handle_server_request(int sock_client, int sock_server, request *req, pthread_mutex_t *mutex_arr) {
+    return false;
+}
+
 bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
     response res = { UNKNOWN, 0, {0} };
 
@@ -91,6 +99,8 @@ bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
         fprintf(stderr, "invalid resource: %d\n", req->res);
         return true;
     }
+
+
 
     if(req->cmd == SET) {
         if(!set_resource(dir, req->res, req->data, &mutex_arr[req->res])) {
@@ -150,6 +160,7 @@ bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
 
 void *handle_connection(void *sock_ptr) {
     int sock = *((int *)sock_ptr);
+    int server_sock;
 
     fprintf(stderr, "thread started\n");
 
@@ -161,19 +172,29 @@ void *handle_connection(void *sock_ptr) {
 
     fprintf(stderr, "id: %d\n", (int)id);
 
+    if(id == CLIENT) {
+        fprintf(stderr, "Trying to connect to the other server\n");
+        struct sockaddr_in addr;
+        server_sock = get_socket(second_server_ip, second_server_port, &addr, SERVER);
+
+        if(server_sock < 0) {
+            fprintf(stderr, "Could not connect to second server\n");
+        }
+    }
+
     request req = { UNKNOWN, 0, 0, {0} };
     while(read_request(sock, &req)) {
         if(id == CLIENT) {
             fprintf(stderr, "handling client request\n");
             if(!handle_client_request(sock, &req, mutex_arr)) break;
         } else {
-            fprintf(stderr, "server handler not implemented\n");
+            fprintf(stderr, "handling server request\n");
+            if(!handle_server_request(sock, server_sock, &req, mutex_arr)) break;
             break;
         }
     }
 
-    close(sock);    /* Close client socket */
-    //free(sock_ptr);
+    close(sock);
     fprintf(stderr, "thread finished\n");
     return 0;
 }
