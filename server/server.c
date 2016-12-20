@@ -110,12 +110,14 @@ bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex
         fill_response(&res, ERROR, "Not implemented");
     }
 
+    printf("Sending response> %d %d (%d)<%s>\n", res.status, res.lm, res.len, res.data);
+
     if(!send_response(server_sock, &res)) {
         fprintf(stderr, "Error sending response\n");
         return false;
     }
 
-    fprintf(stderr, "response sent\n");
+    fprintf(stderr, "Response sent\n");
 
     return true;
 }
@@ -124,7 +126,7 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
     response client_res = { UNKNOWN, 0, 0, {0} };
     response server_res = { UNKNOWN, 0, 0, {0} };
 
-    printf("Client request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
+    fprintf(stderr, "Client request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
 
     if(req->res < 0 || req->res > RESOURCE_MAX) {
         fprintf(stderr, "invalid resource: %d\n", req->res);
@@ -132,13 +134,44 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
     }
 
     if(req->cmd == SET) {
-        if(!set_resource(dir, req->res, req->data, &mutex_arr[req->res])) {
-            fprintf(stderr, "Failed to set resource\n");
+        bool set_local = set_resource(dir, req->res, req->data, &mutex_arr[req->res]);
 
-            fill_response(&client_res, ERROR, "Failed to set resource");
-        } else {
-            fill_response(&client_res, OK, "Success");
+        if(!set_local) {
+            fprintf(stderr, "failed to set local resource\n");
+            fill_response(&client_res, ERROR, "failed to set local resource");
+            send_response(client_sock, &client_res);
+            return false;
         }
+
+        bool send_status = send_request(server_sock, req);
+
+        if(!send_status) {
+            fprintf(stderr, "failed to send set command to the second server\n");
+            fill_response(&client_res, ERROR, "failed to send set command to the second server");
+            send_response(client_sock, &client_res);
+            return false;
+        }
+
+        bool set_status = receive_response(server_sock, &server_res);
+
+        if(!set_status) {
+            fprintf(stderr, "failed to receive response from second server\n");
+            fill_response(&client_res, ERROR, "failed to receive response from second server");
+            send_response(client_sock, &client_res);
+            return false;
+        }
+
+        fprintf(stderr, "Sending response> %d %d (%d)<%s>\n",
+            server_res.status, server_res.lm, server_res.len, server_res.data);
+
+        if(!send_response(client_sock, &server_res)) {
+            fprintf(stderr, "Failed to send server response to client\n");
+            return false;
+        }
+
+        fprintf(stderr, "Response sent\n");
+        return true;
+
     } else {
         fill_response(&client_res, ERROR, "Not implemented");
     }
@@ -220,14 +253,18 @@ void *handle_connection(void *sock_ptr) {
     while(read_request(sock, &req)) {
         if(id == CLIENT) {
             fprintf(stderr, "handling client request\n");
-            if(!handle_client_request(sock, second_server_sock, &req, mutex_arr)) break;
+            if(!handle_client_request(sock, second_server_sock, &req, mutex_arr)) {
+                break;
+            }
         } else {
             fprintf(stderr, "handling server request\n");
-            if(!handle_server_request(sock, &req, mutex_arr)) break;
-            break;
+            if(!handle_server_request(sock, &req, mutex_arr)) {
+                break;
+            }
         }
     }
 
+    close(second_server_sock);
     close(sock);
     fprintf(stderr, "thread finished\n");
     return 0;

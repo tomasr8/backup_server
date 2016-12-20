@@ -53,18 +53,18 @@ char *path_join(char *dir, int res) {
 bool send_response(int socket, response *res) {
 
     if(!send_uint16(socket, res->status)) {
-        printf("Failed to send status\n");
+        printf("Failed to send res->status\n");
         return false;
     }
 
 
     if(!send_uint32(socket, res->lm)) {
-        printf("Failed to send lm\n");
+        printf("Failed to send res->lm\n");
         return false;
     }
 
     if(!send_uint16(socket, res->len)) {
-        printf("Failed to send len\n");
+        printf("Failed to send res->len\n");
         return false;
     }
 
@@ -73,7 +73,7 @@ bool send_response(int socket, response *res) {
     }
 
     if(send(socket, res->data, res->len, 0) <= 0) {
-        printf("Failed to send data\n");
+        printf("Failed to send res->data\n");
         return false;
     }
 

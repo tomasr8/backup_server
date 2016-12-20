@@ -66,6 +66,20 @@ bool read_uint16(int sock, uint16_t *num);
 */
 bool read_str(int sock, char *buffer, int len);
 
+/**
+* serializes and sends a request to a server
+* @returns true on success
+*
+*/
+bool send_request(int socket, request *req);
+
+/**
+* reads a single response into a struct
+* @returns true on success
+*
+*/
+bool receive_response(int socket, response *res);
+
 bool send_id(int sock, uint16_t id);
 
 bool send_uint16(int sock, uint16_t num);

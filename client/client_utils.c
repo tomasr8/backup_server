@@ -28,52 +28,6 @@ int parse_send_recv(socklen_t sock, char *buffer) {
     return 0;
 }
 
-bool receive_response(int socket, response *res) {
-
-    if(!read_uint16(socket, &res->status)) {
-        return false;
-    }
-
-    if(!read_uint32(socket, &res->lm)) {
-        return false;
-    }
-
-    if(!read_uint16(socket, &res->len)) {
-        return false;
-    }
-
-    if(res->len == 0) {
-        res->data[0] = '\0';
-        return true;
-    }
-
-    if(!read_str(socket, res->data, res->len)) {
-        return false;
-    }
-
-    return true;
-}
-
-bool send_request(int sock, request *req) {
-    bool res = send_uint16(sock, req->cmd) &&
-        send_uint16(sock, req->res) &&
-        send_uint16(sock, req->len);
-
-    if(!res) {
-        fprintf(stderr, "Failed to send request parameters\n");
-        return false;
-    } else if(req->len == 0) {
-        return true;
-    }
-
-    if(send(sock, req->data, req->len, 0) <= 0) {
-        fprintf(stderr, "Failed to send data\n");
-        return false;
-    }
-
-    return true;
-}
-
 bool parse_line(char *buffer, request *req) {
     char cmdStr[4] = {0};
     char data[257] = {0};
