@@ -1,8 +1,8 @@
 #include "server_utils.h"
 
 #define MAXPENDING 5    /* Maximum outstanding connection requests */
-pthread_mutex_t mutex_arr[RESOURCE_MAX];
-char *dir;
+pthread_mutex_t mutex_arr[RESOURCE_MAX + 1]; // 0-32 = 33
+char *dir; // path to resources
 char *second_server_ip;
 int second_server_port;
 
@@ -12,12 +12,12 @@ bool handle_client(int sock);
 
 int main(int argc, char *argv[]) {
 
-    int servSock;                    /* Socket descriptor for server */
-    int clntSock;                    /* Socket descriptor for client */
-    struct sockaddr_in echoServAddr; /* Local address */
-    struct sockaddr_in echoClntAddr; /* Client address */
-    unsigned short echoServPort;     /* Server port */
-    unsigned int clntLen;            /* Length of client address data structure */
+    int server_sock;                    /* Socket descriptor for server */
+    int client_sock;                    /* Socket descriptor for client */
+    struct sockaddr_in server_addr; /* Local address */
+    struct sockaddr_in client_addr; /* Client address */
+    unsigned short server_port;     /* Server port */
+    unsigned int client_addr_size = sizeof(client_addr);/* Length of client address data structure */
 
     if (argc != 5) {
         fprintf(stderr, "Usage: <Server Port> <Second server port> <Second server address> <folder>\n");
@@ -27,53 +27,55 @@ int main(int argc, char *argv[]) {
     second_server_port = atoi(argv[2]);
     second_server_ip = argv[3];
     dir = argv[4];
-    echoServPort = atoi(argv[1]);
+    server_port = atoi(argv[1]);
 
-    if(!check_resources(argv[2])) {
+    if(!check_resources(argv[4])) {
         fprintf(stderr, "failed to access required resources\n");
-        return 1;
+        return EXIT_FAILURE;
     }
 
-    for(int i = 0; i < RESOURCE_MAX; i++) {
+    for(int i = 0; i < RESOURCE_MAX + 1; i++) {
         if(pthread_mutex_init(&mutex_arr[i], NULL) != 0) {
             fprintf(stderr, "failed to create mutex no: %d\n", i);
-            return 1;
+            return EXIT_FAILURE;
         }
     }
+
+    signal(SIGPIPE, SIG_IGN);
 
     // for(int i = 0; i < RESOURCE_MAX; i++) {
     //     pthread_mutex_destroy(&mutex_arr[i]);
     // }
 
     /* Create socket for incoming connections */
-    if ((servSock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
+    if ((server_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
         dieWithError("socket() failed");
     }
 
     /* Construct local address structure */
-    memset(&echoServAddr, 0, sizeof(echoServAddr));   /* Zero out structure */
-    echoServAddr.sin_family = AF_INET;                /* Internet address family */
-    echoServAddr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */
-    echoServAddr.sin_port = htons(echoServPort);      /* Local port */
+    memset(&server_addr, 0, sizeof(server_addr));   /* Zero out structure */
+    server_addr.sin_family = AF_INET;                /* Internet address family */
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY); /* Any incoming interface */
+    server_addr.sin_port = htons(server_port);      /* Local port */
 
     /* Bind to the local address */
-    if (bind(servSock, (struct sockaddr *) &echoServAddr, sizeof(echoServAddr)) < 0) {
+    if (bind(server_sock, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
         dieWithError("bind() failed");
     }
 
     /* Mark the socket so it will listen for incoming connections */
-    if (listen(servSock, MAXPENDING) < 0) {
+    if (listen(server_sock, MAXPENDING) < 0) {
         dieWithError("listen() failed");
     }
 
         /* Set the size of the in-out parameter */
-    clntLen = sizeof(echoClntAddr);
-
+    //clntLen = sizeof(echoClntAddr);
+    //client_addr_size = sizeof(client_addr);
         /* Wait for a client to connect */
-    while ((clntSock = accept(servSock, (struct sockaddr *) &echoClntAddr, &clntLen)) >= 0) {
-        printf("Handling client %s\n", inet_ntoa(echoClntAddr.sin_addr));
+    while ((client_sock = accept(server_sock, (struct sockaddr *) &client_addr, &client_addr_size)) >= 0) {
+        printf("Handling client %s\n", inet_ntoa(client_addr.sin_addr));
         pthread_t worker;
-        int sock = clntSock;
+        int sock = client_sock;
         // int *sock_ptr = malloc(sizeof(int));
         // *sock_ptr = clntSock;
 
@@ -86,21 +88,15 @@ int main(int argc, char *argv[]) {
 
 }
 
-bool handle_server_request(int sock_client, int sock_server, request *req, pthread_mutex_t *mutex_arr) {
-    return false;
-}
+bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex_arr) {
+    response res = { UNKNOWN, 0, 0, {0} };
 
-bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
-    response res = { UNKNOWN, 0, {0} };
-
-    printf("Client request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
+    printf("Server request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
 
     if(req->res < 0 || req->res > RESOURCE_MAX) {
         fprintf(stderr, "invalid resource: %d\n", req->res);
         return true;
     }
-
-
 
     if(req->cmd == SET) {
         if(!set_resource(dir, req->res, req->data, &mutex_arr[req->res])) {
@@ -112,6 +108,39 @@ bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
         }
     } else {
         fill_response(&res, ERROR, "Not implemented");
+    }
+
+    if(!send_response(server_sock, &res)) {
+        fprintf(stderr, "Error sending response\n");
+        return false;
+    }
+
+    fprintf(stderr, "response sent\n");
+
+    return true;
+}
+
+bool handle_client_request(int client_sock, int server_sock, request *req, pthread_mutex_t *mutex_arr) {
+    response client_res = { UNKNOWN, 0, 0, {0} };
+    response server_res = { UNKNOWN, 0, 0, {0} };
+
+    printf("Client request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
+
+    if(req->res < 0 || req->res > RESOURCE_MAX) {
+        fprintf(stderr, "invalid resource: %d\n", req->res);
+        return true;
+    }
+
+    if(req->cmd == SET) {
+        if(!set_resource(dir, req->res, req->data, &mutex_arr[req->res])) {
+            fprintf(stderr, "Failed to set resource\n");
+
+            fill_response(&client_res, ERROR, "Failed to set resource");
+        } else {
+            fill_response(&client_res, OK, "Success");
+        }
+    } else {
+        fill_response(&client_res, ERROR, "Not implemented");
     }
 
 
@@ -148,7 +177,7 @@ bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
     //     res.len = strlen(res.data);
     // }
 
-    if(!send_response(sock, &res)) {
+    if(!send_response(client_sock, &client_res)) {
         fprintf(stderr, "Error sending response\n");
         return false;
     }
@@ -160,7 +189,7 @@ bool handle_client_request(int sock, request *req, pthread_mutex_t *mutex_arr) {
 
 void *handle_connection(void *sock_ptr) {
     int sock = *((int *)sock_ptr);
-    int server_sock;
+    int second_server_sock;
 
     fprintf(stderr, "thread started\n");
 
@@ -175,21 +204,26 @@ void *handle_connection(void *sock_ptr) {
     if(id == CLIENT) {
         fprintf(stderr, "Trying to connect to the other server\n");
         struct sockaddr_in addr;
-        server_sock = get_socket(second_server_ip, second_server_port, &addr, SERVER);
+        second_server_sock = get_socket(second_server_ip, second_server_port, &addr, SERVER);
 
-        if(server_sock < 0) {
+        if(second_server_sock < 0) {
             fprintf(stderr, "Could not connect to second server\n");
         }
+    } else if(id == SERVER) {
+        fprintf(stderr, "server connections not implemented\n");
+    } else {
+        fprintf(stderr, "Wrong ID\n");
+        return 0;
     }
 
     request req = { UNKNOWN, 0, 0, {0} };
     while(read_request(sock, &req)) {
         if(id == CLIENT) {
             fprintf(stderr, "handling client request\n");
-            if(!handle_client_request(sock, &req, mutex_arr)) break;
+            if(!handle_client_request(sock, second_server_sock, &req, mutex_arr)) break;
         } else {
             fprintf(stderr, "handling server request\n");
-            if(!handle_server_request(sock, server_sock, &req, mutex_arr)) break;
+            if(!handle_server_request(sock, &req, mutex_arr)) break;
             break;
         }
     }

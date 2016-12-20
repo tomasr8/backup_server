@@ -21,6 +21,31 @@ bool send_uint16(int sock, uint16_t num) {
     return send(sock, &num, sizeof(uint16_t), 0) > 0;
 }
 
+bool send_uint32(int sock, uint32_t num) {
+    num = htonl(num);
+    return send(sock, &num, sizeof(uint32_t), 0) > 0;
+}
+
+bool read_uint32(int sock, uint32_t *num) {
+    uint32_t ret;
+    char *data = (char*)&ret;
+    int left = sizeof(ret);
+    int rc;
+
+    do {
+        rc = recv(sock, data, left, 0);
+        if (rc <= 0) {
+            return false;
+        } else {
+            data += rc;
+            left -= rc;
+        }
+    } while (left > 0);
+
+    *num = ntohl(ret);
+    return true;
+}
+
 bool read_uint16(int sock, uint16_t *num) {
     uint16_t ret;
     char *data = (char*)&ret;

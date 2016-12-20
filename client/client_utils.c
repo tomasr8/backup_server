@@ -16,14 +16,14 @@ int parse_send_recv(socklen_t sock, char *buffer) {
 
     fprintf(stderr, "request sent\n");
 
-    response res = { UNKNOWN, 0, {0} };
+    response res = { UNKNOWN, 0, 0, {0} };
 
     if(!receive_response(sock, &res)) {
         fprintf(stderr, "Error reading response.. \n");
         return E_CONNECTION;
     }
 
-    printf("Response> %d (%d)<%s>\n", res.status, res.len, res.data);
+    printf("Response> %d lm:%d (%d)<%s>\n", res.status, res.lm, res.len, res.data);
 
     return 0;
 }
@@ -31,6 +31,10 @@ int parse_send_recv(socklen_t sock, char *buffer) {
 bool receive_response(int socket, response *res) {
 
     if(!read_uint16(socket, &res->status)) {
+        return false;
+    }
+
+    if(!read_uint32(socket, &res->lm)) {
         return false;
     }
 

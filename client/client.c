@@ -52,19 +52,5 @@ int main(int argc, char *argv[]) {
 
     }
 
-    // while(sock >= 0) {
-    //     fprintf(stderr, "Connected to: %s on port %d, socket no. %d\n",
-    //         inet_ntoa(addr.sin_addr), (int) ntohs(addr.sin_port), sock);
-    //
-    //     if(read_send_recv(sock)) {
-    //         printf("EOF reached\n");
-    //         return 0;
-    //     }
-    //
-    //     sock = get_socket_multiple(IPs, ports, 2, &addr);
-    // }
-    //
-    // fprintf(stderr, "Failed to establish connection to server\n");
-
     return 1;
 }

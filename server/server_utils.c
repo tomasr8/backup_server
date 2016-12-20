@@ -51,17 +51,20 @@ char *path_join(char *dir, int res) {
 }
 
 bool send_response(int socket, response *res) {
-    uint16_t num;
 
-    num = htons(res->status);
-    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        printf("Failed to send cmd\n");
+    if(!send_uint16(socket, res->status)) {
+        printf("Failed to send status\n");
         return false;
     }
 
-    num = htons(res->len);
-    if(send(socket, &num, sizeof(uint16_t), 0) <= 0) {
-        printf("Failed to send resource\n");
+
+    if(!send_uint32(socket, res->lm)) {
+        printf("Failed to send lm\n");
+        return false;
+    }
+
+    if(!send_uint16(socket, res->len)) {
+        printf("Failed to send len\n");
         return false;
     }
 
@@ -143,6 +146,7 @@ bool write_to_file(char *path, char *data) {
 
 void fill_response(response *res, int status, char *data) {
     res->status = status;
+    res->lm = 23;
     const size_t len = strlen(data);
     strncpy(res->data, data, len);
     res->data[len] = '\0';

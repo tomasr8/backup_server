@@ -38,6 +38,7 @@ typedef struct request {
 */
 typedef struct response {
     uint16_t status;
+    uint32_t lm;
     uint16_t len;
     char data[MAX_SIZE + 1];
 } response;
@@ -68,6 +69,10 @@ bool read_str(int sock, char *buffer, int len);
 bool send_id(int sock, uint16_t id);
 
 bool send_uint16(int sock, uint16_t num);
+
+bool send_uint32(int sock, uint32_t num);
+
+bool read_uint32(int sock, uint32_t *num);
 
 /**
 * @returns socket for <ip> and <port> and fills struct <addr>
