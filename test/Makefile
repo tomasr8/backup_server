@@ -1,0 +1,14 @@
+CFLAGS=-Wall -Werror -std=c99 -pthread -I/home/tomas/Documents/backup_server/headers
+
+serv: test_server_utils.c
+	gcc $(CFLAGS) -I../headers -I../lib/unity/src/ \
+	../utils.c test_server_utils.c ../server/server_utils.c \
+	../lib/unity/src/unity.c -o test_server_utils.out
+
+cl: test_client_utils.c
+	gcc $(CFLAGS) -I../headers -I../lib/unity/src/ \
+	../utils.c test_client_utils.c ../client/client_utils.c \
+	../lib/unity/src/unity.c -o test_client_utils.out
+
+clean:
+	rm -f *.out

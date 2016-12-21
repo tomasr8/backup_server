@@ -55,7 +55,7 @@ bool parse_line(char *buffer, request *req) {
     req->cmd = (uint16_t) cmd;
     req->res = (uint16_t) resource;
     req->len = (uint16_t) (strlen(data) > 0 ? strlen(data) - 1 : 0); // not counting the leading space
-    strncpy(req->data, data+1, 256); // data[0] is space separating resource and data
+    strncpy(req->data, data + 1, 256); // data[0] is space separating resource and data
 
     return true;
 }

@@ -26,7 +26,7 @@ typedef struct request {
     uint16_t cmd;
     uint16_t res;
     uint16_t len;
-    char data[MAX_SIZE + 1];
+    char data[MAX_SIZE + 1]; // null byte, so we can treat it as string
 } request;
 
 /**
@@ -42,11 +42,6 @@ typedef struct response {
     uint16_t len;
     char data[MAX_SIZE + 1];
 } response;
-
-typedef struct response_lm {
-    uint16_t status;
-    uint32_t time;
-} response_lm;
 
 /**
 * shortuct for perror() & exit(1)
@@ -71,14 +66,14 @@ bool read_str(int sock, char *buffer, int len);
 * @returns true on success
 *
 */
-bool send_request(int socket, request *req);
+bool send_request(int sock, request *req);
 
 /**
 * reads a single response into a struct
 * @returns true on success
 *
 */
-bool receive_response(int socket, response *res);
+bool receive_response(int sock, response *res);
 
 bool send_id(int sock, uint16_t id);
 
