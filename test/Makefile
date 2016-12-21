@@ -10,5 +10,10 @@ cl: test_client_utils.c
 	../utils.c test_client_utils.c ../client/client_utils.c \
 	../lib/unity/src/unity.c -o test_client_utils.out
 
+sock: test_socket_functions.c
+	gcc $(CFLAGS) -I../headers -I../lib/unity/src/ \
+	test_socket_functions.c ../utils.c \
+	../lib/unity/src/unity.c -o test_socket_functions.out
+
 clean:
 	rm -f *.out
