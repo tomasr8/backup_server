@@ -40,7 +40,7 @@ bool read_file(char *path, char *buffer) {
 
     fread(buffer, fsize, 1, f);
     fclose(f);
-    buffer[MAX_SIZE] = '\0'; // buffer needs to be of size at least MAX_SIZE+1
+    buffer[fsize] = '\0'; // buffer needs to be of size at least MAX_SIZE+1
     return true;
 }
 
