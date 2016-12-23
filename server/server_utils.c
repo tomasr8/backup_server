@@ -144,9 +144,9 @@ bool write_to_file(char *path, char *data) {
     return true;
 }
 
-void fill_response(response *res, int status, char *data) {
+void fill_response(response *res, int status, char *data, uint32_t lm) {
     res->status = status;
-    res->lm = 23;
+    res->lm = lm;
     const size_t len = strlen(data);
     strncpy(res->data, data, len);
     res->data[len] = '\0';

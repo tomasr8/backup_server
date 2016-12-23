@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -5,9 +6,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <fcntl.h>
+#include <time.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 #include "constants.h"
+
 
 #ifndef UTILS_H_
 #define UTILS_H_
@@ -94,5 +100,8 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id);
 * or -1 if no connection can be made
 */
 int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr, int id);
+
+bool last_modified(char *path, uint32_t *lm);
+bool read_file(char *path, char *buffer);
 
 #endif

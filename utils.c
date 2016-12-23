@@ -1,10 +1,48 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <stdbool.h>
 #include "utils.h"
+
+bool last_modified(char *path, uint32_t *lm) {
+    struct stat buf;
+
+    const int ret = stat(path, &buf);
+
+    if(ret != 0) {
+        const int err = errno;
+        if(err == EACCES) {
+            fprintf(stderr, "Search permission denied in stat()\n");
+        } else {
+            fprintf(stderr, "Error occurred in stat() call\n");
+        }
+        return false;
+    }
+
+    *lm = (uint32_t) difftime(buf.st_ctime, 0);
+    //fprintf(stderr, "%d\n", *lm);
+    return true;
+}
+
+bool read_file(char *path, char *buffer) {
+    FILE *f = fopen(path, "rb");
+
+    if(f == NULL) {
+        fprintf(stderr, "Error opening file %s\n", path);
+        return false;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long fsize = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    if(fsize > MAX_SIZE) {
+        fprintf(stderr, "File is larger than MAX_SIZE\n");
+        fclose(f);
+        return false;
+    }
+
+    fread(buffer, fsize, 1, f);
+    fclose(f);
+    buffer[MAX_SIZE] = '\0'; // buffer needs to be of size at least MAX_SIZE+1
+    return true;
+}
 
 void dieWithError(const char *errorMessage) {
     perror (errorMessage);

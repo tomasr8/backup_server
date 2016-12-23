@@ -102,12 +102,35 @@ bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex
         if(!set_resource(dir, req->res, req->data, &mutex_arr[req->res])) {
             fprintf(stderr, "Failed to set resource\n");
 
-            fill_response(&res, ERROR, "Failed to set resource");
+            fill_response(&res, ERROR, "Failed to set resource", 23);
         } else {
-            fill_response(&res, OK, "Success");
+            fill_response(&res, OK, "Success", 23);
         }
+    } else if(req->cmd == GET) {
+        char *path = path_join(dir, req->res);
+        char buffer[MAX_SIZE + 1];
+        uint32_t lm;
+
+        const bool lm_ret = last_modified(path, &lm);
+        const bool read_ret = read_file(path, buffer);
+
+        free(path);
+
+        if(!lm_ret) {
+            fprintf(stderr, "Error in stat()\n");
+            fill_response(&res, ERROR, "Error in stat()", 23);
+            return send_response(server_sock, &res);
+        }
+
+        if(!read_ret) {
+            fprintf(stderr, "Error reading file\n");
+            fill_response(&res, ERROR, "Error reading file", 23);
+            return send_response(server_sock, &res);
+        }
+
+        fill_response(&res, OK, buffer, lm);
     } else {
-        fill_response(&res, ERROR, "Not implemented");
+        fill_response(&res, ERROR, "Not implemented", 23);
     }
 
     printf("Sending response> %d %d (%d)<%s>\n", res.status, res.lm, res.len, res.data);
@@ -138,7 +161,7 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
 
         if(!set_local) {
             fprintf(stderr, "failed to set local resource\n");
-            fill_response(&client_res, ERROR, "failed to set local resource");
+            fill_response(&client_res, ERROR, "failed to set local resource", 23);
             send_response(client_sock, &client_res);
             return false;
         }
@@ -147,16 +170,16 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
 
         if(!send_status) {
             fprintf(stderr, "failed to send set command to the second server\n");
-            fill_response(&client_res, ERROR, "failed to send set command to the second server");
+            fill_response(&client_res, ERROR, "failed to send set command to the second server", 23);
             send_response(client_sock, &client_res);
             return false;
         }
 
-        bool set_status = receive_response(server_sock, &server_res);
+        bool recv_status = receive_response(server_sock, &server_res);
 
-        if(!set_status) {
+        if(!recv_status) {
             fprintf(stderr, "failed to receive response from second server\n");
-            fill_response(&client_res, ERROR, "failed to receive response from second server");
+            fill_response(&client_res, ERROR, "failed to receive response from second server", 23);
             send_response(client_sock, &client_res);
             return false;
         }
@@ -172,43 +195,53 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
         fprintf(stderr, "Response sent\n");
         return true;
 
+    } else if(req->cmd == GET) {
+        char *path = path_join(dir, req->res);
+        char buffer[MAX_SIZE + 1];
+        uint32_t lm;
+
+        const bool lm_ret = last_modified(path, &lm);
+        const bool read_ret = read_file(path, buffer);
+
+        free(path);
+
+        if(!lm_ret) {
+            fprintf(stderr, "Error in stat()\n");
+            fill_response(&client_res, ERROR, "Error in stat()", 23);
+            return send_response(client_sock, &client_res);
+        }
+
+        if(!read_ret) {
+            fprintf(stderr, "Error reading file\n");
+            fill_response(&client_res, ERROR, "Error reading file", 23);
+            return send_response(client_sock, &client_res);
+        }
+
+        if(!send_request(server_sock, req)) {
+            fprintf(stderr, "Error sending request to second server\n");
+            fill_response(&client_res, ERROR, "Error sending request to second server", 23);
+            return send_response(client_sock, &client_res);
+        }
+
+        if(!receive_response(server_sock, &server_res)) {
+            fprintf(stderr, "Error sending request to second server\n");
+            fill_response(&client_res, ERROR, "Error sending request to second server", 23);
+            send_response(client_sock, &client_res);
+            return false;
+        }
+
+        fprintf(stderr, "comparing lm's: %d %d\n", lm, server_res.lm);
+
+        if(server_res.lm >= lm) {
+            return send_response(client_sock, &server_res);
+        } else {
+            fill_response(&client_res, OK, buffer, lm);
+            return send_response(client_sock, &client_res);
+        }
+
     } else {
-        fill_response(&client_res, ERROR, "Not implemented");
+        fill_response(&client_res, ERROR, "Not implemented", 23);
     }
-
-
-    // if(req->cmd == GET) {
-    //     char *path = path_join(dir, req->res);
-    //     FILE *fp = fopen(path, "r");
-    //
-    //     if(fp == NULL) {
-    //         fprintf(stderr, "Error opening file\n");
-    //         res.status = ERROR;
-    //         res.data = "Error opening file";
-    //         res.len = strlen(res.data);
-    //     } else {
-    //         char buffer[MAX_SIZE + 1];
-    //         size_t len = fread(buffer, sizeof(char), MAX_SIZE, fp);
-    //         if ( ferror( fp ) != 0 ) {
-    //             fprintf(stderr, "Error reading file\n");
-    //             res.status = ERROR;
-    //             res.data = "Error reading file";
-    //             res.len = strlen(res.data);
-    //         } else {
-    //             fprintf(stderr, "file read successfull\n");
-    //             buffer[len] = '\0'; /* Just to be safe. */
-    //             res.status = OK;
-    //             res.data = buffer;
-    //             res.len = strlen(res.data);
-    //         }
-    //
-    //         fclose(fp);
-    //     }
-    // } else {
-    //     res.status = OK;
-    //     res.data = "Success";
-    //     res.len = strlen(res.data);
-    // }
 
     if(!send_response(client_sock, &client_res)) {
         fprintf(stderr, "Error sending response\n");

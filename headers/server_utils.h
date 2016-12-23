@@ -33,6 +33,6 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
 bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex_arr);
 bool write_to_file(char *path, char *data);
 
-void fill_response(response *res, int status, char *data);
+void fill_response(response *res, int status, char *data, uint32_t lm);
 
 #endif

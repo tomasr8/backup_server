@@ -15,5 +15,10 @@ sock: test_socket_functions.c
 	test_socket_functions.c ../utils.c \
 	../lib/unity/src/unity.c -o test_socket_functions.out
 
+io: test_io.c
+	gcc $(CFLAGS) -I../headers -I../lib/unity/src/ \
+	test_io.c ../utils.c \
+	../lib/unity/src/unity.c -o test_io.out
+
 clean:
 	rm -f *.out
