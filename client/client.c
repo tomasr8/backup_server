@@ -1,4 +1,3 @@
-#include <stdlib.h>
 #include "client_utils.h"
 
 int main(int argc, char *argv[]) {
@@ -6,6 +5,9 @@ int main(int argc, char *argv[]) {
     char *IPs[2];
     int ports[2];
     int sock = -1;
+
+    openlog(CLIENT_LOGGER, LOG_PID, LOG_USER);
+    signal(SIGPIPE, SIG_IGN);
 
     if(argc != 5) {
       fprintf(stderr, "Usage:\n");
@@ -19,12 +21,10 @@ int main(int argc, char *argv[]) {
     IPs[0] = argv[2];
     IPs[1] = argv[4];
 
-    signal(SIGPIPE, SIG_IGN);
-
     sock = get_socket_multiple(IPs, ports, 2, &addr, CLIENT);
 
     if(sock < 0) {
-        fprintf(stderr, "Failed to establish connection to server\n");
+        log_warn("Failed to establish connection to server\n");
         return EXIT_FAILURE;
     }
 
@@ -40,9 +40,9 @@ int main(int argc, char *argv[]) {
         status = parse_send_recv(sock, buffer);
 
         if(status == E_PARSE) {
-            fprintf(stderr, "Error parsing command\n");
+            log_notice("Error parsing command\n");
         } else if(status == E_CONNECTION) {
-            fprintf(stderr, "Connection problem, reconnecting.. \n");
+            log_notice("Connection problem, reconnecting.. \n");
 
             do {
                 sock = get_socket_multiple(IPs, ports, 2, &addr, CLIENT);
@@ -52,5 +52,7 @@ int main(int argc, char *argv[]) {
 
     }
 
-    return 1;
+    log_info("End of input reached\n");
+    closelog();
+    return EXIT_SUCCESS;
 }

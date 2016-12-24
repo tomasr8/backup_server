@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
+#include <stdarg.h>
 #include "constants.h"
 
 
@@ -105,9 +106,12 @@ int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *
 bool last_modified(char *path, uint32_t *lm);
 bool read_file(char *path, char *buffer);
 
-void log_msg(char *msg, int prio);
-void log_info(char *msg);
-void log_notice(char *msg);
-void log_warn(char *msg);
+void log_msg(int prio, char *msg, va_list argptr);
+void log_info(char *msg, ...);
+void log_notice(char *msg, ...);
+void log_warn(char *msg, ...);
+void log_debug(char *msg, ...);
+
+void vsyslog(int priority, const char *format, va_list ap);
 
 #endif

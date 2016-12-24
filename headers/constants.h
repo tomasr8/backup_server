@@ -7,6 +7,12 @@
 *
 */
 
+#define PRODUCTION 0
+
+#define CLIENT_LOGGER "backupServer-client"
+#define SERVER_LOGGER "backupServer-server"
+#define TESTSUITE_LOGGER "backupServer-testSuite"
+
 /* Commands used in requests */
 
 // returns resource from both servers if possible

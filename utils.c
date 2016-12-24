@@ -1,20 +1,47 @@
 #include "utils.h"
 
-void log_msg(char* msg, int prio) {
-    fprintf(stderr, "%s\n", msg);
-    syslog(prio, "%s", msg);
+void log_msg(int prio, char* msg, va_list ap) {
+    va_list aq;
+
+    va_copy(aq, ap);
+    if(!PRODUCTION) {
+        vfprintf(stderr, msg, ap);
+    }
+
+    vsyslog(prio, msg, aq);
+    va_end(aq);
 }
 
-void log_info(char *msg) {
-    log_msg(msg, LOG_INFO);
+void log_debug(char *msg, ...) {
+    va_list ap;
+
+    va_start(ap, msg);
+    log_msg(LOG_DEBUG, msg, ap);
+    va_end(ap);
 }
 
-void log_notice(char *msg) {
-    log_msg(msg, LOG_NOTICE);
+void log_info(char *msg, ...) {
+    va_list ap;
+
+    va_start(ap, msg);
+    log_msg(LOG_INFO, msg, ap);
+    va_end(ap);
 }
 
-void log_warn(char *msg) {
-    log_msg(msg, LOG_WARNING);
+void log_notice(char *msg, ...) {
+    va_list ap;
+
+    va_start(ap, msg);
+    log_msg(LOG_NOTICE, msg, ap);
+    va_end(ap);
+}
+
+void log_warn(char *msg, ...) {
+    va_list ap;
+
+    va_start(ap, msg);
+    log_msg(LOG_WARNING, msg, ap);
+    va_end(ap);
 }
 
 bool last_modified(char *path, uint32_t *lm) {
@@ -25,14 +52,15 @@ bool last_modified(char *path, uint32_t *lm) {
     if(ret != 0) {
         const int err = errno;
         if(err == EACCES) {
-            fprintf(stderr, "Search permission denied in stat()\n");
+            log_warn("Search permission denied in stat()\n");
         } else {
-            fprintf(stderr, "Error occurred in stat() call\n");
+            log_warn("Error occurred in stat() call\n");
         }
         return false;
     }
 
     *lm = (uint32_t) difftime(buf.st_ctime, 0);
+    log_debug("file %s last modified %d", path, *lm);
     //fprintf(stderr, "%d\n", *lm);
     return true;
 }
@@ -41,7 +69,7 @@ bool read_file(char *path, char *buffer) {
     FILE *f = fopen(path, "rb");
 
     if(f == NULL) {
-        fprintf(stderr, "Error opening file %s\n", path);
+        log_warn("Error opening file\n");
         return false;
     }
 
@@ -50,7 +78,7 @@ bool read_file(char *path, char *buffer) {
     fseek(f, 0, SEEK_SET);
 
     if(fsize > MAX_SIZE) {
-        fprintf(stderr, "File is larger than MAX_SIZE\n");
+        log_warn("File is larger than MAX_SIZE\n");
         fclose(f);
         return false;
     }
@@ -58,6 +86,7 @@ bool read_file(char *path, char *buffer) {
     fread(buffer, fsize, 1, f);
     fclose(f);
     buffer[fsize] = '\0'; // buffer needs to be of size at least MAX_SIZE+1, otherwise this could segfault
+    log_debug("Read file %s", path);
     return true;
 }
 
@@ -148,7 +177,7 @@ bool send_request(int sock, request *req) {
         send_uint16(sock, req->len);
 
     if(!ret) {
-        fprintf(stderr, "Failed to send request parameters\n");
+        log_warn("Failed to send request parameters\n");
         return false;
     }
 
@@ -157,7 +186,7 @@ bool send_request(int sock, request *req) {
     }
 
     if(send(sock, req->data, req->len, 0) <= 0) {
-        fprintf(stderr, "Failed to send data\n");
+        log_warn("Failed to send data\n");
         return false;
     }
 
@@ -170,7 +199,7 @@ bool receive_response(int socket, response *res) {
         read_uint16(socket, &res->len);
 
     if(!ret) {
-        fprintf(stderr, "Failed to read response parameters\n");
+        log_warn("Failed to read response parameters\n");
         return false;
     }
 
@@ -201,10 +230,10 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
     fd_set fdset;
     struct timeval tv;
 
-    fprintf(stderr, "Trying to connect to %s on port %d\n", ip, port);
+    log_info("Trying to connect to %s on port %d\n", ip, port);
 
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
-        fprintf(stderr, "socket() call failed\n");
+        log_warn("socket() call failed\n");
         return -1;
     }
 
@@ -216,7 +245,7 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
     // set socket to non-blocking mode
     if(fcntl(sock, F_SETFL, O_NONBLOCK) < 0) {
         close(sock);
-        fprintf(stderr, "Could not set socket to non-blocking\n");
+        log_warn("Could not set socket to non-blocking\n");
         return -1;
     }
 
@@ -238,7 +267,7 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
             int opts;
 
             if((opts = fcntl(sock, F_GETFL)) < 0) {
-                fprintf(stderr, "fnctl(F_GETFL) failed\n");
+                log_warn("fnctl(F_GETFL) failed\n");
                 close(sock);
                 return -1;
             }
@@ -248,25 +277,25 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
 
             // switch back to blocking mode
             if (fcntl(sock, F_SETFL, opts) < 0) {
-                fprintf(stderr, "fnctl(F_SETFL) failed\n");
+                log_warn("fnctl(F_SETFL) failed\n");
                 close(sock);
                 return -1;
             }
 
             if(!send_id(sock, id)) {
-                fprintf(stderr, "Failed to send identification\n");
+                log_warn("Failed to send identification\n");
                 close(sock);
                 return -1;
             }
 
-            fprintf(stderr, "Socket is open to %s on port %d\n", ip, port);
+            log_info("Socket is open to %s on port %d\n", ip, port);
             return sock;
         }
 
-        fprintf(stderr, "Connection failed with error %d\n", so_error);
+        log_warn("Connection failed with error %d\n", so_error);
     }
 
-    fprintf(stderr, "select() timed out\n");
+    //log_notice("select() timed out\n");
     close(sock);
 
     return -1;
