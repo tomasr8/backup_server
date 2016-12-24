@@ -20,12 +20,17 @@
 #ifndef UTILS_H_
 #define UTILS_H_
 
+/*
+* various io and socket utility functions and type definitions
+*/
+
+// max resource size
 #define MAX_SIZE 255
 
 /**
 * struct used to represent a single request
 * .cmd = command e.g. GET, SET, ...
-* .res = resource, 0-32, theoretically could be more
+* .res = resource, 0-32, theoretically could be more if RESOURCE_MAX in constants.h is changed
 * .len = length of data being sent in bytes
 * .data = request data
 *
@@ -34,14 +39,14 @@ typedef struct request {
     uint16_t cmd;
     uint16_t res;
     uint16_t len;
-    char data[MAX_SIZE + 1]; // null byte, so we can treat it as string
+    char data[MAX_SIZE + 1]; // null byte, so we can treat it as a string
 } request;
 
 /**
-* struct represting a single response
+* struct representing a single response
 * .status = response status, e.g. OK, ERROR, ...
 * .len = length of message being sent
-* .data = reponse data
+* .data = response data
 *
 */
 typedef struct response {
@@ -57,61 +62,140 @@ typedef struct response {
 void dieWithError(char const *errorMessage);
 
 /**
-* reads 4 bytes from a socet into a usigned 16 bit integer
-* @returns true on success
+* sends unsigned 16-bit integer over a socket
+*
+* @param sock - socket
+* @param num - number to send_uint16
+*
+* @return true on success, false on failure
+*/
+bool send_uint16(int sock, uint16_t num);
+
+/**
+* 32-bit equivalent of send_uint16(sock, num)
+*/
+bool send_uint32(int sock, uint32_t num);
+
+/**
+* syntactic sugar for send_uint16(sock, id);
+*/
+bool send_id(int sock, uint16_t id);
+
+/**
+* reads 2 bytes from a socket into a usigned 16 bit integer
+*
+* @param sock - socket
+* @param num - pointer to uint16_t where the number will be stored
+*
+* @return true on success, false on failure
 */
 bool read_uint16(int sock, uint16_t *num);
 
 /**
+* 32-bit equivalent of read_uint16(sock, num)
+*/
+bool read_uint32(int sock, uint32_t *num);
+
+/**
 * reads <len> bytes from socket into <buffer>,
 * appends null terminator to the end
-* @returns true on success
+*
+* @param sock - socket
+* @param buffer - buffer into which the data will be read, the buffer length has to be atleast len+1
+* @param len - how many bytes to read, function appends null at the end
+* @return true on success, false on failure
 */
 bool read_str(int sock, char *buffer, int len);
 
 /**
-* serializes and sends a request to a server
-* @returns true on success
+* sends a request struct over a socket
 *
+* @param sock - socket
+* @param req - request struct
+*
+* @return true on success, false on failure
 */
 bool send_request(int sock, request *req);
 
 /**
-* reads a single response into a struct
-* @returns true on success
+* reads a single response struct from a socket
 *
+* @param sock - socket
+* @param res - response struct into which the data is read
+*
+* @return true on success, false on failure
 */
 bool receive_response(int sock, response *res);
 
-bool send_id(int sock, uint16_t id);
-
-bool send_uint16(int sock, uint16_t num);
-
-bool send_uint32(int sock, uint32_t num);
-
-bool read_uint32(int sock, uint32_t *num);
-
 /**
-* @returns socket for <ip> and <port> and fills struct <addr>
-* on error returns -1;
+* attempts to establish a connection with specified ip on given port
+*
+* @param ip - server ip
+* @param port - server port
+* @param addr - connections settings, will be available after connection
+* @param id - identification, get_socket sends identification before it returns
+*
+* @return socket number on success, -1 on error
 */
 int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id);
 
 /**
-* returns socket for one of the <IPs> and <ports>
-* or -1 if no connection can be made
+* similar to get_socket(), tries to connect to multiple hosts
+* returns as soon as a connection has been established
+*
+* @param IPs - pointer to ip addresses
+* @param ports - pointer to ports
+* @param len - number of hosts to trz to connect to
+* @param addr - connection options
+* @param id - identification
+*
+* @return socket on success, -1 on failure
+* failure = no hosts were available
 */
 int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr, int id);
 
+/**
+* reads date of last modification of a file into <lm>
+*
+* @param path - full path to file
+* @param lm - the date will be available in this variable
+*
+* @return true on success, false on failure
+*/
 bool last_modified(char *path, uint32_t *lm);
+
+/**
+* reads the whole file into <buffer> if it does not exceed MAX_SIZE
+* appends null byte at the end
+*
+* @param path - full path to file
+* @param buffer
+*
+* @return true on success, false on failure
+*/
 bool read_file(char *path, char *buffer);
 
-void log_msg(int prio, char *msg, va_list argptr);
-void log_info(char *msg, ...);
-void log_notice(char *msg, ...);
-void log_warn(char *msg, ...);
-void log_debug(char *msg, ...);
+/**
+* prints formatted message to sdterr, and syslogs it
+*
+* @param prio - log priority
+* @param format - format string
+* @param ap - variadic list of arguments for <format>
+*/
+void log_msg(int prio, char *format, va_list ap);
 
+/**
+* wrappers for log_msg, logs at given levels
+*/
+void log_info(char *format, ...);
+void log_notice(char *format, ...);
+void log_warn(char *format, ...);
+void log_debug(char *format, ...);
+
+/**
+* for some reason stdarg.h does not seem declare vsyslog..???
+*
+*/
 void vsyslog(int priority, const char *format, va_list ap);
 
 #endif

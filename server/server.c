@@ -6,9 +6,6 @@ char *dir; // path to resources
 char *second_server_ip;
 int second_server_port;
 
-void * handle_connection(void * sock_ptr);   /* TCP client handling function */
-bool handle_client(int sock);
-
 
 int main(int argc, char *argv[]) {
 
