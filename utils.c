@@ -1,5 +1,22 @@
 #include "utils.h"
 
+void log_msg(char* msg, int prio) {
+    fprintf(stderr, "%s\n", msg);
+    syslog(prio, "%s", msg);
+}
+
+void log_info(char *msg) {
+    log_msg(msg, LOG_INFO);
+}
+
+void log_notice(char *msg) {
+    log_msg(msg, LOG_NOTICE);
+}
+
+void log_warn(char *msg) {
+    log_msg(msg, LOG_WARNING);
+}
+
 bool last_modified(char *path, uint32_t *lm) {
     struct stat buf;
 
@@ -40,7 +57,7 @@ bool read_file(char *path, char *buffer) {
 
     fread(buffer, fsize, 1, f);
     fclose(f);
-    buffer[fsize] = '\0'; // buffer needs to be of size at least MAX_SIZE+1
+    buffer[fsize] = '\0'; // buffer needs to be of size at least MAX_SIZE+1, otherwise this could segfault
     return true;
 }
 
@@ -50,8 +67,9 @@ void dieWithError(const char *errorMessage) {
 }
 
 bool send_id(int sock, uint16_t id) {
-    id = htons(id);
-    return send(sock, &id, sizeof(uint16_t), 0) > 0;
+    return send_uint16(sock, id);
+    // id = htons(id);
+    // return send(sock, &id, sizeof(uint16_t), 0) > 0;
 }
 
 bool send_uint16(int sock, uint16_t num) {
@@ -125,14 +143,16 @@ bool read_str(int sock, char *buffer, int len) {
 }
 
 bool send_request(int sock, request *req) {
-    bool res = send_uint16(sock, req->cmd) &&
+    bool ret = send_uint16(sock, req->cmd) &&
         send_uint16(sock, req->res) &&
         send_uint16(sock, req->len);
 
-    if(!res) {
+    if(!ret) {
         fprintf(stderr, "Failed to send request parameters\n");
         return false;
-    } else if(req->len == 0) {
+    }
+
+    if(req->len == 0) {
         return true;
     }
 
@@ -145,16 +165,12 @@ bool send_request(int sock, request *req) {
 }
 
 bool receive_response(int socket, response *res) {
+    bool ret = read_uint16(socket, &res->status) &&
+        read_uint32(socket, &res->lm) &&
+        read_uint16(socket, &res->len);
 
-    if(!read_uint16(socket, &res->status)) {
-        return false;
-    }
-
-    if(!read_uint32(socket, &res->lm)) {
-        return false;
-    }
-
-    if(!read_uint16(socket, &res->len)) {
+    if(!ret) {
+        fprintf(stderr, "Failed to read response parameters\n");
         return false;
     }
 
@@ -185,7 +201,7 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
     fd_set fdset;
     struct timeval tv;
 
-    fprintf(stderr, "trying to connect to %s on port %d\n", ip, port);
+    fprintf(stderr, "Trying to connect to %s on port %d\n", ip, port);
 
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0 ) {
         fprintf(stderr, "socket() call failed\n");
@@ -197,6 +213,7 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
     addr->sin_addr.s_addr = inet_addr(ip);
     addr->sin_port = htons(port);
 
+    // set socket to non-blocking mode
     if(fcntl(sock, F_SETFL, O_NONBLOCK) < 0) {
         close(sock);
         fprintf(stderr, "Could not set socket to non-blocking\n");
@@ -210,6 +227,7 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
     tv.tv_sec = 10;             /* 10 second timeout */
     tv.tv_usec = 0;
 
+    // wait for 10 seconds for socket to change status
     if (select(sock + 1, NULL, &fdset, NULL, &tv) == 1) {
         int so_error;
         socklen_t len = sizeof so_error;
@@ -225,8 +243,10 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
                 return -1;
             }
 
+            // zero out non-blocking mode
             opts = opts & (~O_NONBLOCK);
 
+            // switch back to blocking mode
             if (fcntl(sock, F_SETFL, opts) < 0) {
                 fprintf(stderr, "fnctl(F_SETFL) failed\n");
                 close(sock);
@@ -235,16 +255,18 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
 
             if(!send_id(sock, id)) {
                 fprintf(stderr, "Failed to send identification\n");
+                close(sock);
                 return -1;
             }
 
-            fprintf(stderr, "Socket is open\n");
+            fprintf(stderr, "Socket is open to %s on port %d\n", ip, port);
             return sock;
         }
 
         fprintf(stderr, "Connection failed with error %d\n", so_error);
     }
 
+    fprintf(stderr, "select() timed out\n");
     close(sock);
 
     return -1;

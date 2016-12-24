@@ -1,20 +1,20 @@
 #include "client_utils.h"
 
 int parse_send_recv(socklen_t sock, char *buffer) {
-
     request req = { UNKNOWN, 0, 0, {0} };
 
     if(!parse_line(buffer, &req)) {
         return E_PARSE;
     }
 
-    fprintf(stderr, "to send> cmd:%d resource:%d (%d bytes)<%s>\n", req.cmd, req.res, req.len, req.data);
+    fprintf(stderr, "Request> cmd:%d resource:%d (%d bytes)<%s>\n", req.cmd, req.res, req.len, req.data);
 
     if(!send_request(sock, &req)) {
+        fprintf(stderr, "Error sending request\n");
         return E_CONNECTION;
     }
 
-    fprintf(stderr, "request sent\n");
+    fprintf(stderr, "Request sent to server\n");
 
     response res = { UNKNOWN, 0, 0, {0} };
 
@@ -23,7 +23,7 @@ int parse_send_recv(socklen_t sock, char *buffer) {
         return E_CONNECTION;
     }
 
-    printf("Response> %d lm:%d (%d)<%s>\n", res.status, res.lm, res.len, res.data);
+    fprintf(stderr, "Response from server> %d lm:%d (%d)<%s>\n", res.status, res.lm, res.len, res.data);
 
     return 0;
 }
