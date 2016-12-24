@@ -29,7 +29,7 @@ void test_readFile(void){
 }
 
 int main(void) {
-    openlog("backup_server_test_io", LOG_PID, LOG_USER);
+    openlog("backupServer-testSuite", LOG_PID, LOG_USER);
     UNITY_BEGIN();
     RUN_TEST(test_lastModified);
     RUN_TEST(test_readFile);
