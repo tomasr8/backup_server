@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
     int sock = -1;
 
     openlog(CLIENT_LOGGER, LOG_PID, LOG_USER);
-    signal(SIGPIPE, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN); // potentially unsafe
 
     if(argc != 5) {
       fprintf(stderr, "Usage:\n");
@@ -30,14 +30,13 @@ int main(int argc, char *argv[]) {
 
     char buffer[LINE_SIZE];
     while(fgets(buffer, LINE_SIZE - 1, stdin) != NULL) {
-        int status;
 
         if (buffer[strlen(buffer)-1] != '\n') {
             char ch;
             while (((ch = getchar()) != '\n') && (ch != EOF)) {}
         }
 
-        status = parse_send_recv(sock, buffer);
+        int status = parse_send_recv(sock, buffer);
 
         if(status == E_PARSE) {
             log_notice("Error parsing command\n");

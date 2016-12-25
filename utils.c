@@ -1,5 +1,6 @@
 #include "utils.h"
 
+
 void log_msg(int prio, char* msg, va_list ap) {
     va_list aq;
 
@@ -223,7 +224,7 @@ bool receive_response(int socket, response *res) {
     return true;
 }
 
-int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr, int id) {
+int get_socket_multiple(char **IPs, int *ports, int len, struct sockaddr_in *addr, int id) {
     int sock = -1;
     for(int i = 0; i < len; i++) {
         if((sock = get_socket(IPs[i], ports[i], addr, id)) >= 0) {

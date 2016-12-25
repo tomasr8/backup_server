@@ -1,5 +1,11 @@
 CFLAGS=-Wall -Werror -std=c99 -pthread -I/home/tomas/Documents/backup_server/headers
 
+all:
+	make serv
+	make cl
+	make sock
+	make io
+
 serv: test_server_utils.c
 	gcc $(CFLAGS) -I../headers -I../lib/unity/src/ \
 	../utils.c test_server_utils.c ../server/server_utils.c \

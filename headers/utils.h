@@ -152,7 +152,7 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id);
 * @return socket on success, -1 on failure
 * failure = no hosts were available
 */
-int get_socket_multiple(char **IPs, int *ports, size_t len, struct sockaddr_in *addr, int id);
+int get_socket_multiple(char **IPs, int *ports, int len, struct sockaddr_in *addr, int id);
 
 /**
 * reads date of last modification of a file into <lm>

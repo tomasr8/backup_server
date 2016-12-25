@@ -4,8 +4,8 @@
 #ifndef CLIENT_UTILS_H_
 #define CLIENT_UTILS_H_
 
-// ?????
-//#define LINE_SIZE 264
+
+#define LINE_SIZE 264
 
 
 /**

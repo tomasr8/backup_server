@@ -122,7 +122,7 @@ bool set_resource(char *path, int res, char *data, pthread_mutex_t *mutex) {
 
 bool write_to_file(char *path, char *data) {
     FILE *fp;
-    
+
     if((fp = fopen(path, "w")) == NULL) {
         log_warn("Could not open file for writing\n");
         return false;

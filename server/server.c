@@ -114,7 +114,7 @@ bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex
 
     printf("Server request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
 
-    if(req->res < 0 || req->res > RESOURCE_MAX) {
+    if(req->res > RESOURCE_MAX) {
         log_notice("Invalid resource: %d\n", req->res);
         fill_response(&res, ERROR, "Invalid resource", LM_TOKEN);
         return send_response(server_sock, &res);
@@ -173,7 +173,7 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
 
     log_debug("Client request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
 
-    if(req->res < 0 || req->res > RESOURCE_MAX) {
+    if(req->res > RESOURCE_MAX) {
         log_notice("Invalid resource: %d\n", req->res);
         fill_response(&client_res, ERROR, "Invalid resource", LM_TOKEN);
         return send_response(client_sock, &client_res);
