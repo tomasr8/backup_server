@@ -5,13 +5,13 @@ bool check_resources(char *dir) {
     FILE *fp;
     for(int i = 0; i <= RESOURCE_MAX; i++) {
         if((path_to_file = path_join(dir, i)) == NULL) {
-            fprintf(stderr, "error ocurred in path_join()\n");
+            log_err("error ocurred in path_join()\n");
             return false;
         }
-        fprintf(stderr, "path to file: %s\n", path_to_file);
+        log_debug("path to file: %s\n", path_to_file);
 
         if((fp = fopen(path_to_file, "ab+")) == NULL) {
-            fprintf(stderr, "could not open file\n");
+            log_err("Could not open file: %s\n", path_to_file);
             return false;
         }
 
@@ -27,7 +27,7 @@ char *path_join(char *dir, int res) {
     char * joined;
 
     if((joined = malloc(path_len)) == NULL) {
-        fprintf(stderr, "path_join(): failed malloc() enough memory\n");
+        log_err("path_join(): failed to malloc() enough memory\n");
         return NULL;
     }
 
@@ -77,28 +77,23 @@ bool read_request(int socket, request *req) {
 
     if(!read_uint16(socket, &req->cmd)) {
         return false;
-        //dieWithError("Error reading command\n");
     }
 
     if(!read_uint16(socket, &req->res)) {
         return false;
-        //dieWithError("Error reading data length\n");
     }
 
     if(!read_uint16(socket, &req->len)) {
         return false;
-        //dieWithError("Error reading data length\n");
     }
 
     if(req->len == 0) {
-        //printf("Received response from server: Status code: %d\n", res.status);
         req->data[0] = '\0';
         return true;
     }
 
     if(!read_str(socket, req->data, req->len)) {
         return false;
-        //dieWithError("Error reading data\n");
     }
 
     return true;
@@ -108,16 +103,17 @@ bool set_resource(char *path, int res, char *data, pthread_mutex_t *mutex) {
     char *fullpath = path_join(path, res);
 
     if(fullpath == NULL) {
-        fprintf(stderr, "Failed to join path\n");
+        log_err("Failed to join path\n");
         return false;
     }
 
-    fprintf(stderr, "locking mutex before writing to file\n");
+    log_debug("locking mutex before writing to file\n");
     pthread_mutex_lock(mutex);
 
     if(!write_to_file(fullpath, data)) {
-        fprintf(stderr, "Failed to write to file\n");
+        log_warn("Failed to write to file\n");
     }
+
     pthread_mutex_unlock(mutex);
     free(fullpath);
 
@@ -126,8 +122,9 @@ bool set_resource(char *path, int res, char *data, pthread_mutex_t *mutex) {
 
 bool write_to_file(char *path, char *data) {
     FILE *fp;
+    
     if((fp = fopen(path, "w")) == NULL) {
-        fprintf(stderr, "could not open file\n");
+        log_warn("Could not open file for writing\n");
         return false;
     }
 
@@ -140,7 +137,9 @@ bool write_to_file(char *path, char *data) {
 void fill_response(response *res, int status, char *data, uint32_t lm) {
     res->status = status;
     res->lm = lm;
+
     const size_t len = strlen(data);
+
     strncpy(res->data, data, len);
     res->data[len] = '\0';
     res->len = len;

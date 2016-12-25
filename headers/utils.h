@@ -187,6 +187,7 @@ void log_msg(int prio, char *format, va_list ap);
 /**
 * wrappers for log_msg, logs at given levels
 */
+void log_err(char *format, ...);
 void log_info(char *format, ...);
 void log_notice(char *format, ...);
 void log_warn(char *format, ...);

@@ -44,6 +44,14 @@ void log_warn(char *msg, ...) {
     va_end(ap);
 }
 
+void log_err(char *msg, ...) {
+    va_list ap;
+
+    va_start(ap, msg);
+    log_msg(LOG_ERR, msg, ap);
+    va_end(ap);
+}
+
 bool last_modified(char *path, uint32_t *lm) {
     struct stat buf;
 
@@ -60,7 +68,7 @@ bool last_modified(char *path, uint32_t *lm) {
     }
 
     *lm = (uint32_t) difftime(buf.st_ctime, 0);
-    log_debug("file %s last modified %d", path, *lm);
+    log_debug("file %s last modified %d\n", path, *lm);
     //fprintf(stderr, "%d\n", *lm);
     return true;
 }
@@ -86,14 +94,14 @@ bool read_file(char *path, char *buffer) {
     fread(buffer, fsize, 1, f);
     fclose(f);
     buffer[fsize] = '\0'; // buffer needs to be of size at least MAX_SIZE+1, otherwise this could segfault
-    log_debug("Read file %s", path);
+    log_debug("Read file %s\n", path);
     return true;
 }
 
-void dieWithError(const char *errorMessage) {
-    perror (errorMessage);
-    exit(1);
-}
+// void dieWithError(const char *errorMessage) {
+//     perror (errorMessage);
+//     exit(1);
+// }
 
 bool send_id(int sock, uint16_t id) {
     return send_uint16(sock, id);

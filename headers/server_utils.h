@@ -1,3 +1,4 @@
+#define _POSIX_SOURCE
 #include <math.h>
 #include <pthread.h>
 #include <signal.h>

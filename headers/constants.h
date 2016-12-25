@@ -48,5 +48,7 @@
 
 // maximum resource number
 #define RESOURCE_MAX 32
+// token last modified date
+#define LM_TOKEN 0
 
 #endif
