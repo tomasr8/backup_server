@@ -1,23 +1,24 @@
 #include "server_utils.h"
 
-#define MAXPENDING 5    /* Maximum outstanding connection requests */
+#define MAXPENDING 5    /* Maximum requests */
 pthread_mutex_t mutex_arr[RESOURCE_MAX + 1]; // 0-32 = 33
+//pthread_mutex_t mutex_sigint;
 char *dir; // path to resources
 char *second_server_ip;
 int second_server_port;
-volatile sig_atomic_t sigint_sent = false;
+volatile sig_atomic_t sigint_sent = false; // CTRL-C
 
 void signal_handler() {
     sigint_sent = true;
 }
 
 int main(int argc, char *argv[]) {
-    int server_sock;                    /* Socket descriptor for server */
-    int client_sock;                    /* Socket descriptor for client */
-    struct sockaddr_in server_addr; /* Local address */
-    struct sockaddr_in client_addr; /* Client address */
-    unsigned short server_port;     /* Server port */
-    unsigned int client_addr_size = sizeof(client_addr);/* Length of client address data structure */
+    int server_sock;
+    int client_sock;
+    struct sockaddr_in server_addr; /* local address */
+    struct sockaddr_in client_addr; /* client address */
+    unsigned short server_port;
+    unsigned int client_addr_size = sizeof(client_addr);
 
     if (argc != 5) {
         log_err("Usage: <Server Port> <Second server port> <Second server address> <folder>\n");
@@ -57,6 +58,11 @@ int main(int argc, char *argv[]) {
             return EXIT_FAILURE;
         }
     }
+    // if(pthread_mutex_init(&mutex_sigint, NULL) != 0) {
+    //     log_err("Failed to create sigint mutex\n");
+    //
+    //     return EXIT_FAILURE;
+    // }
 
     /* Create socket for incoming connections */
     if ((server_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
@@ -82,22 +88,19 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-        /* Set the size of the in-out parameter */
-    //clntLen = sizeof(echoClntAddr);
-    //client_addr_size = sizeof(client_addr);
-        /* Wait for a client to connect */
-    while ((client_sock = accept(server_sock, (struct sockaddr *) &client_addr, &client_addr_size)) >= 0 &&
-            sigint_sent == false) {
+    while ((client_sock = accept(server_sock, (struct sockaddr *) &client_addr, &client_addr_size)) >= 0) {
+        if(sigint_sent) {
+            log_info("CTRL-C received \n");
+            break;
+        }
+
         printf("Handling client %s\n", inet_ntoa(client_addr.sin_addr));
         pthread_t worker;
         int sock = client_sock;
-        // int *sock_ptr = malloc(sizeof(int));
-        // *sock_ptr = clntSock;
 
         if(pthread_create(&worker, NULL, handle_connection, (void *)&sock)) {
             log_warn("Failed to create a thread\n");
             close(sock);
-            //free(sock_ptr);
         }
     }
 
@@ -106,7 +109,10 @@ int main(int argc, char *argv[]) {
     for(int i = 0; i < RESOURCE_MAX; i++) {
         pthread_mutex_destroy(&mutex_arr[i]);
     }
+    //pthread_mutex_destroy(&mutex_sigint);
 
+    pthread_exit(0);
+    //return EXIT_SUCCESS;
 }
 
 bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex_arr) {
@@ -306,7 +312,7 @@ void *handle_connection(void *sock_ptr) {
     }
 
     request req = { UNKNOWN, 0, 0, {0} };
-    while(read_request(sock, &req)) {
+    while(!sigint_sent && read_request(sock, &req)) { // probably thread safe
         if(second_server_sock < 0 || id == SERVER) {
             fprintf(stderr, "Handling request (no second server)\n");
             if(!handle_server_request(sock, &req, mutex_arr)) {
@@ -322,6 +328,6 @@ void *handle_connection(void *sock_ptr) {
 
     close(second_server_sock);
     close(sock);
-    fprintf(stderr, "thread finished\n");
+    fprintf(stderr, "Thread finished\n");
     return 0;
 }

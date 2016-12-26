@@ -1,2 +1,0 @@
--Werror -Wall -std=c99 -c -pthread -I/home/tomas/Documents/backup_server/headers
-

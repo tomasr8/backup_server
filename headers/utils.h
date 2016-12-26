@@ -171,16 +171,7 @@ bool last_modified(char *path, uint32_t *lm);
 bool read_file(char *path, char *buffer);
 
 /**
-* prints formatted message to sdterr, and syslogs it
-*
-* @param prio - log priority
-* @param format - format string
-* @param ap - variadic list of arguments for <format>
-*/
-void log_msg(int prio, char *format, va_list ap);
-
-/**
-* wrappers for log_msg, logs at given levels
+* wrappers for syslog and fprintf(stderr, ...)
 */
 void log_err(char *format, ...);
 void log_info(char *format, ...);

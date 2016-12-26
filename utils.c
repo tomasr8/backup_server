@@ -1,61 +1,67 @@
 #include "utils.h"
 
-
-void log_msg(int prio, char* msg, va_list ap) {
+/**
+* prints formatted message to sdterr, and syslogs it
+* internal function used by other log_* functions
+*
+* @param prio - log priority
+* @param format - format string
+* @param ap - variadic list of arguments for <format>
+*/
+void log_msg(int prio, char* format, va_list ap) {
     va_list aq;
 
     va_copy(aq, ap);
     if(!PRODUCTION) {
-        vfprintf(stderr, msg, ap);
+        vfprintf(stderr, format, ap);
     }
 
-    vsyslog(prio, msg, aq);
+    vsyslog(prio, format, aq);
     va_end(aq);
 }
 
-void log_debug(char *msg, ...) {
+void log_debug(char *format, ...) {
     va_list ap;
 
-    va_start(ap, msg);
-    log_msg(LOG_DEBUG, msg, ap);
+    va_start(ap, format);
+    log_msg(LOG_DEBUG, format, ap);
     va_end(ap);
 }
 
-void log_info(char *msg, ...) {
+void log_info(char *format, ...) {
     va_list ap;
 
-    va_start(ap, msg);
-    log_msg(LOG_INFO, msg, ap);
+    va_start(ap, format);
+    log_msg(LOG_INFO, format, ap);
     va_end(ap);
 }
 
-void log_notice(char *msg, ...) {
+void log_notice(char *format, ...) {
     va_list ap;
 
-    va_start(ap, msg);
-    log_msg(LOG_NOTICE, msg, ap);
+    va_start(ap, format);
+    log_msg(LOG_NOTICE, format, ap);
     va_end(ap);
 }
 
-void log_warn(char *msg, ...) {
+void log_warn(char *format, ...) {
     va_list ap;
 
-    va_start(ap, msg);
-    log_msg(LOG_WARNING, msg, ap);
+    va_start(ap, format);
+    log_msg(LOG_WARNING, format, ap);
     va_end(ap);
 }
 
-void log_err(char *msg, ...) {
+void log_err(char *format, ...) {
     va_list ap;
 
-    va_start(ap, msg);
-    log_msg(LOG_ERR, msg, ap);
+    va_start(ap, format);
+    log_msg(LOG_ERR, format, ap);
     va_end(ap);
 }
 
 bool last_modified(char *path, uint32_t *lm) {
     struct stat buf;
-
     const int ret = stat(path, &buf);
 
     if(ret != 0) {
@@ -69,8 +75,8 @@ bool last_modified(char *path, uint32_t *lm) {
     }
 
     *lm = (uint32_t) difftime(buf.st_ctime, 0);
-    log_debug("file %s last modified %d\n", path, *lm);
-    //fprintf(stderr, "%d\n", *lm);
+    log_debug("File %s last modified %d\n", path, *lm);
+
     return true;
 }
 
@@ -96,6 +102,7 @@ bool read_file(char *path, char *buffer) {
     fclose(f);
     buffer[fsize] = '\0'; // buffer needs to be of size at least MAX_SIZE+1, otherwise this could segfault
     log_debug("Read file %s\n", path);
+
     return true;
 }
 
@@ -188,7 +195,7 @@ bool send_request(int sock, request *req) {
     }
 
     if(send(sock, req->data, req->len, 0) <= 0) {
-        log_warn("Failed to send data\n");
+        log_warn("Failed to send request data\n");
         return false;
     }
 
@@ -211,6 +218,7 @@ bool receive_response(int socket, response *res) {
     }
 
     if(!read_str(socket, res->data, res->len)) {
+        log_warn("Failed to read response data\n");
         return false;
     }
 
@@ -297,8 +305,6 @@ int get_socket(char const *ip, int port, struct sockaddr_in *addr, int id) {
         log_warn("Connection failed with error %d\n", so_error);
     }
 
-    //log_notice("select() timed out\n");
     close(sock);
-
     return -1;
 }

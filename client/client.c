@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
       exit(1);
     }
 
-    ports[0] = (int) strtol(argv[1], (char **)NULL, 10);
+    ports[0] = (int) strtol(argv[1], (char **)NULL, 10); // safer variant of atoi
     ports[1] = (int) strtol(argv[3], (char **)NULL, 10);
 
     IPs[0] = argv[2];
@@ -45,7 +45,16 @@ int main(int argc, char *argv[]) {
 
             do {
                 sock = get_socket_multiple(IPs, ports, 2, &addr, CLIENT);
+
+                if(sock < 0) {
+                    log_info("Could not reconnect. Stopping client\n");
+                    closelog();
+                    return EXIT_FAILURE;
+                }
+
+                log_debug("reconnected socket no: %d\n", sock);
                 status = parse_send_recv(sock, buffer);
+
             } while(status == E_CONNECTION && sock >= 0);
         }
 
