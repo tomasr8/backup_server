@@ -57,11 +57,6 @@ typedef struct response {
 } response;
 
 /**
-* shortuct for perror() & exit(1)
-*/
-void dieWithError(char const *errorMessage);
-
-/**
 * sends unsigned 16-bit integer over a socket
 *
 * @param sock - socket

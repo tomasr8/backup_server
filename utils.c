@@ -83,7 +83,7 @@ bool read_file(char *path, char *buffer) {
     }
 
     fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
+    const long fsize = ftell(f);
     fseek(f, 0, SEEK_SET);
 
     if(fsize > MAX_SIZE) {
@@ -99,15 +99,8 @@ bool read_file(char *path, char *buffer) {
     return true;
 }
 
-// void dieWithError(const char *errorMessage) {
-//     perror (errorMessage);
-//     exit(1);
-// }
-
 bool send_id(int sock, uint16_t id) {
     return send_uint16(sock, id);
-    // id = htons(id);
-    // return send(sock, &id, sizeof(uint16_t), 0) > 0;
 }
 
 bool send_uint16(int sock, uint16_t num) {
