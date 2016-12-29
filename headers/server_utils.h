@@ -120,4 +120,8 @@ void * handle_connection(void * sock_ptr);
 */
 void fill_response(response *res, int status, char *data, uint32_t lm);
 
+void fill_response_err(response *res, char *msg);
+bool fill_send(int sock, response *res, int status, char *data, uint32_t lm);
+bool fill_send_err(int sock, response *res, char *msg);
+
 #endif

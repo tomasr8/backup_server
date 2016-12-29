@@ -144,3 +144,17 @@ void fill_response(response *res, int status, char *data, uint32_t lm) {
     res->data[len] = '\0';
     res->len = len;
 }
+
+void fill_response_err(response *res, char *msg) {
+    fill_response(res, ERROR, msg, LM_TOKEN);
+}
+
+bool fill_send(int sock, response *res, int status, char *data, uint32_t lm) {
+    fill_response(res, status, data, lm);
+    return send_response(sock, res);
+}
+
+bool fill_send_err(int sock, response *res, char *msg) {
+    fill_response_err(res, msg);
+    return send_response(sock, res);
+}

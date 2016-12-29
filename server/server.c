@@ -12,6 +12,13 @@ void signal_handler() {
     sigint_sent = true;
 }
 
+bool check_id(int id) {
+    if(id != CLIENT && id != SERVER) {
+        return false;
+    }
+    return true;
+}
+
 int main(int argc, char *argv[]) {
     int server_sock;
     int client_sock;
@@ -118,19 +125,18 @@ int main(int argc, char *argv[]) {
 bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex_arr) {
     response res = { UNKNOWN, 0, 0, {0} };
 
-    printf("Server request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
+    log_debug("Server request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
 
     if(req->res > RESOURCE_MAX) {
-        log_notice("Invalid resource: %d\n", req->res);
-        fill_response(&res, ERROR, "Invalid resource", LM_TOKEN);
+        log_warn("Invalid resource: %d\n", req->res);
+        fill_response_err(&res, "Invalid resource");
         return send_response(server_sock, &res);
     }
 
     if(req->cmd == SET) {
         if(!set_resource(dir, req->res, req->data, &mutex_arr[req->res])) {
             log_warn("Failed to set resource\n");
-
-            fill_response(&res, ERROR, "Failed to set resource", LM_TOKEN);
+            fill_response_err(&res, "Failed to set resource");
         } else {
             fill_response(&res, OK, "Success", LM_TOKEN);
         }
@@ -146,22 +152,22 @@ bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex
 
         if(!lm_ret) {
             log_warn("Error in stat()\n");
-            fill_response(&res, ERROR, "Error in stat()", LM_TOKEN);
+            fill_response_err(&res, "Error in stat()");
             return send_response(server_sock, &res);
         }
 
         if(!read_ret) {
             log_warn("Error reading file\n");
-            fill_response(&res, ERROR, "Error reading file", LM_TOKEN);
+            fill_response_err(&res, "Error reading file");
             return send_response(server_sock, &res);
         }
 
         fill_response(&res, OK, buffer, lm);
     } else {
-        fill_response(&res, ERROR, "Not implemented", LM_TOKEN);
+        fill_response_err(&res, "Not implemented");
     }
 
-    printf("Sending response> %d %d (%d)<%s>\n", res.status, res.lm, res.len, res.data);
+    log_debug("Sending response> %d %d (%d)<%s>\n", res.status, res.lm, res.len, res.data);
 
     if(!send_response(server_sock, &res)) {
         log_warn("Error sending response\n");
@@ -174,43 +180,43 @@ bool handle_server_request(int server_sock, request *req, pthread_mutex_t *mutex
 }
 
 bool handle_client_request(int client_sock, int server_sock, request *req, pthread_mutex_t *mutex_arr) {
-    response client_res = { UNKNOWN, 0, 0, {0} };
-    response server_res = { UNKNOWN, 0, 0, {0} };
+    response client_res = { UNKNOWN, 0, 0, {0} }; // response that will be sent TO client
+    response server_res = { UNKNOWN, 0, 0, {0} }; // response sent FROM the second server
 
     log_debug("Client request> %d %d (%d)<%s>\n", req->cmd, req->res, req->len, req->data);
 
     if(req->res > RESOURCE_MAX) {
         log_notice("Invalid resource: %d\n", req->res);
-        fill_response(&client_res, ERROR, "Invalid resource", LM_TOKEN);
-        return send_response(client_sock, &client_res);
+        fill_response_err(&client_res, "Invalid resource");
+        return send_response(client_sock, &client_res); // non-fatal, connection will be kept alive if send_response succeeds
     }
 
     if(req->cmd == SET) {
-        bool set_local = set_resource(dir, req->res, req->data, &mutex_arr[req->res]);
+        const bool set_local = set_resource(dir, req->res, req->data, &mutex_arr[req->res]);
 
         if(!set_local) {
             log_warn("Failed to set local resource\n");
-            fill_response(&client_res, ERROR, "failed to set local resource", 23);
-            send_response(client_sock, &client_res);
-            return false;
+            fill_response_err(&client_res, "failed to set local resource");
+            return send_response(client_sock, &client_res); // again, connection can be kept alive
+            //return false;
         }
 
-        bool send_status = send_request(server_sock, req);
+        const bool send_status = send_request(server_sock, req);
 
         if(!send_status) {
             log_warn("Failed to send set command to the second server\n");
-            fill_response(&client_res, ERROR, "failed to send set command to the second server", 23);
+            fill_response_err(&client_res, "failed to send set command to the second server");
             send_response(client_sock, &client_res);
-            return false;
+            return false; // something went really wrong, let's just kill this connection
         }
 
-        bool recv_status = receive_response(server_sock, &server_res);
+        const bool recv_status = receive_response(server_sock, &server_res);
 
         if(!recv_status) {
             log_warn("Could not receive response from second server\n");
-            fill_response(&client_res, ERROR, "failed to receive response from second server", 23);
+            fill_response_err(&client_res, "failed to receive response from second server");
             send_response(client_sock, &client_res);
-            return false;
+            return false; // same thing as above
         }
 
         log_debug("Sending response> %d %d (%d)<%s>\n",
@@ -235,31 +241,31 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
         free(path);
 
         if(!lm_ret) {
-            fprintf(stderr, "Error in stat()\n");
-            fill_response(&client_res, ERROR, "Error in stat()", 23);
+            log_warn("Error in stat()\n");
+            fill_response_err(&client_res, "Error in stat()");
             return send_response(client_sock, &client_res);
         }
 
         if(!read_ret) {
-            fprintf(stderr, "Error reading file\n");
-            fill_response(&client_res, ERROR, "Error reading file", 23);
+            log_warn("Error reading file\n");
+            fill_response_err(&client_res, "Error reading file");
             return send_response(client_sock, &client_res);
         }
 
         if(!send_request(server_sock, req)) {
-            fprintf(stderr, "Error sending request to second server\n");
-            fill_response(&client_res, ERROR, "Error sending request to second server", 23);
+            log_warn("Error sending request to second server\n");
+            fill_response_err(&client_res, "Error sending request to second server");
             return send_response(client_sock, &client_res);
         }
 
         if(!receive_response(server_sock, &server_res)) {
-            fprintf(stderr, "Error sending request to second server\n");
-            fill_response(&client_res, ERROR, "Error sending request to second server", 23);
+            log_warn("Error sending request to second server\n");
+            fill_response_err(&client_res, "Error sending request to second server");
             send_response(client_sock, &client_res);
             return false;
         }
 
-        fprintf(stderr, "comparing lm's: %d %d\n", lm, server_res.lm);
+        //fprintf(stderr, "comparing lm's: %d %d\n", lm, server_res.lm);
 
         if(server_res.lm >= lm) {
             return send_response(client_sock, &server_res);
@@ -269,7 +275,7 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
         }
 
     } else {
-        fill_response(&client_res, ERROR, "Not implemented", 23);
+        fill_response_err(&client_res, "Not implemented");
     }
 
     if(!send_response(client_sock, &client_res)) {
@@ -277,7 +283,7 @@ bool handle_client_request(int client_sock, int server_sock, request *req, pthre
         return false;
     }
 
-    fprintf(stderr, "response sent\n");
+    log_debug("Response sent\n");
 
     return true;
 }
@@ -286,40 +292,43 @@ void *handle_connection(void *sock_ptr) {
     int sock = *((int *)sock_ptr);
     int second_server_sock;
 
-    fprintf(stderr, "Thread started\n");
+    log_info("Thread started\n");
 
     uint16_t id;
     if(!read_uint16(sock, &id)) {
-        fprintf(stderr, "Connection failed to send identification\n");
+        log_warn("Connection failed to send identification\n");
+        close(sock);
+        log_info("Thread finished\n");
         return 0;
     }
 
     //fprintf(stderr, "id: %d\n", (int)id);
+    if(!check_id(id)) {
+        log_warn("Wrong ID\n");
+        close(sock);
+        log_info("Thread finished\n");
+        return 0;
+    }
 
     if(id == CLIENT) {
-        fprintf(stderr, "Trying to connect to the other server\n");
+        log_debug("Trying to connect to the second server\n");
         struct sockaddr_in addr;
         second_server_sock = get_socket(second_server_ip, second_server_port, &addr, SERVER);
 
         if(second_server_sock < 0) {
-            fprintf(stderr, "Could not connect to second server\n");
+            log_warn("Could not connect to the second server\n");
         }
-    } else if(id == SERVER) {
-        //fprintf(stderr, "server connections not implemented\n");
-    } else {
-        fprintf(stderr, "Wrong ID\n");
-        return 0;
     }
 
     request req = { UNKNOWN, 0, 0, {0} };
     while(!sigint_sent && read_request(sock, &req)) { // probably thread safe
         if(second_server_sock < 0 || id == SERVER) {
-            fprintf(stderr, "Handling request (no second server)\n");
+            log_debug("Handling request (no second server)\n");
             if(!handle_server_request(sock, &req, mutex_arr)) {
                 break;
             }
         } else {
-            fprintf(stderr, "Handling request\n");
+            log_debug("Handling request\n");
             if(!handle_client_request(sock, second_server_sock, &req, mutex_arr)) {
                 break;
             }
@@ -328,6 +337,6 @@ void *handle_connection(void *sock_ptr) {
 
     close(second_server_sock);
     close(sock);
-    fprintf(stderr, "Thread finished\n");
+    log_debug("Thread finished\n");
     return 0;
 }
