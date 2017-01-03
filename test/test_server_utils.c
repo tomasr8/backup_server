@@ -1,7 +1,9 @@
 #include "unity.h"
 #include "server_utils.h"
 
-void test_pathJoin_should_joinPaths(void) {
+void test_pathJoin(void) {
+    log_info("testing path_join()\n");
+
     char* result;
     TEST_ASSERT_EQUAL_STRING("./data/res1.txt", (result = path_join("./data", 1)));
     free(result);
@@ -16,7 +18,9 @@ void test_pathJoin_should_joinPaths(void) {
 }
 
 int main(void) {
+    openlog(TESTSUITE_LOGGER, LOG_PID, LOG_USER);
     UNITY_BEGIN();
-    RUN_TEST(test_pathJoin_should_joinPaths);
+    RUN_TEST(test_pathJoin);
+    closelog();
     return UNITY_END();
 }

@@ -1,5 +1,5 @@
-#ifndef COMMANDS_H_
-#define COMMANDS_H_
+#ifndef CONSTANTS_H_
+#define CONSTANTS_H_
 
 /**
 * Definitions of commands, statuses, errors and other constants
@@ -12,6 +12,7 @@
 #define PRODUCTION 0
 
 // used in openlog() to determine where to log messages
+// may require updating syslog configuration to include these
 #define CLIENT_LOGGER "backupServer-client"
 #define SERVER_LOGGER "backupServer-server"
 #define TESTSUITE_LOGGER "backupServer-testSuite"
@@ -37,18 +38,21 @@
 
 /* Errors */
 
+// right now does not distinguish between closed socket and other errors
 #define E_CONNECTION -10
+// command parsing error
 #define E_PARSE -20
 
 /* Identification */
 
-// when client or server initiates a connection it sends an identification
+// when a client or a server initiates a connection it sends an identification
 #define CLIENT 123
 #define SERVER 456
 
 // maximum resource number
 #define RESOURCE_MAX 32
 // token last modified date
+// used in status messages
 #define LM_TOKEN 0
 
 #endif

@@ -2,6 +2,8 @@
 #include "client_utils.h"
 
 void test_parseLine(void) {
+    log_info("testing parse_line()\n");
+
     request req = { 0, 0, 0, {0} };
     TEST_ASSERT_TRUE(parse_line("get 0", &req));
     TEST_ASSERT_TRUE(parse_line("get 1", &req));
@@ -41,7 +43,9 @@ void test_parseLine(void) {
 }
 
 int main(void) {
+    openlog(TESTSUITE_LOGGER, LOG_PID, LOG_USER);
     UNITY_BEGIN();
     RUN_TEST(test_parseLine);
+    closelog();
     return UNITY_END();
 }

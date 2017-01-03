@@ -62,6 +62,8 @@ void uint32_to_buf(uint32_t n, char *buf) {
 }
 
 void test_send_id(void) {
+    log_info("testing send_id\n");
+
     for(int i = 0; i < 65536; i++) {
         TEST_ASSERT_TRUE(send_id(10, (uint16_t)i));
         TEST_ASSERT_EQUAL_INT(i, uint16_from_buf(buffer_send));
@@ -69,6 +71,8 @@ void test_send_id(void) {
 }
 
 void test_send_uint16() {
+    log_info("testing send_uint16\n");
+
     for(int i = 0; i < 65536; i++) {
         TEST_ASSERT_TRUE(send_uint16(10, (uint16_t)i));
         TEST_ASSERT_EQUAL_INT(i, uint16_from_buf(buffer_send));
@@ -76,6 +80,8 @@ void test_send_uint16() {
 }
 
 void test_send_uint32() {
+    log_info("testing send_uint32\n");
+
     for(int i = 0; i < 65536; i++) { // not gonna loop over 2^32 possiblities
         TEST_ASSERT_TRUE(send_uint32(10, (uint32_t)i));
         TEST_ASSERT_EQUAL_INT(i, uint32_from_buf(buffer_send));
@@ -83,6 +89,8 @@ void test_send_uint32() {
 }
 
 void test_read_uint16(void) {
+    log_info("testing read_uint16\n");
+
     uint16_t n;
 
     for(int i = 0; i < 65536; i++) {
@@ -94,9 +102,11 @@ void test_read_uint16(void) {
 }
 
 void test_read_uint32(void) {
+    log_info("testing read_uint32\n");
+
     uint32_t n;
 
-    for(int i = 0; i < 65535; i++) { // not gonna loop over 2^32 possiblities
+    for(int i = 0; i < 65535; i++) { // not gonna loop over 2^32 possibilities
         uint32_to_buf((uint32_t)i, buffer_recv);
         TEST_ASSERT_TRUE(read_uint32(10, &n));
         TEST_ASSERT_EQUAL_INT(i, n);
@@ -106,11 +116,13 @@ void test_read_uint32(void) {
 
 
 int main(void) {
+    openlog(TESTSUITE_LOGGER, LOG_PID, LOG_USER);
     UNITY_BEGIN();
     RUN_TEST(test_send_id);
     RUN_TEST(test_send_uint16);
     RUN_TEST(test_send_uint32);
     RUN_TEST(test_read_uint16);
     RUN_TEST(test_read_uint32);
+    closelog();
     return UNITY_END();
 }
